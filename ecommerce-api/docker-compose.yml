@@ -25,13 +25,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
     environment:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: "8080"
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      DB_HOST: postgres
+      DB_HOST: host.docker.internal
       DB_PORT: "5432"
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
@@ -69,6 +71,10 @@ services:
       - "9093:9093"
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --cluster.listen-address=
 
   loki:
     image: grafana/loki:2.9.8
