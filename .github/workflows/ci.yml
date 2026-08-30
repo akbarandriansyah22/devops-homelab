@@ -1,0 +1,127 @@
+name: Go CI + DevSecOps Pipeline
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "ecommerce-api/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/cd.yml"
+  pull_request:
+    paths:
+      - "ecommerce-api/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/cd.yml"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ecommerce-api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.2"
+          cache: true
+          cache-dependency-path: ecommerce-api/go.sum
+
+      - name: Download dependencies
+        run: |
+          go mod tidy
+          go mod download
+          go mod verify
+
+      - name: Secret scanning (Gitleaks)
+        working-directory: .
+        run: |
+          set -euo pipefail
+          VERSION=8.21.2
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks detect --source . --no-git --verbose
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.7.2
+          working-directory: ecommerce-api
+          args: --timeout=5m
+
+      - name: Run GoSec (SAST)
+        run: |
+          set -euo pipefail
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.22.11
+          gosec -severity high -fmt text ./...
+          gosec -severity high -fmt sarif -out gosec.sarif ./...
+
+      - name: Upload GoSec SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ecommerce-api/gosec.sarif
+          category: gosec
+
+      - name: Install Trivy
+        working-directory: .
+        run: |
+          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz \
+            | tar -xz -C /usr/local/bin trivy
+
+      - name: Trivy filesystem scan
+        working-directory: .
+        run: |
+          trivy fs --format sarif --output trivy-fs.sarif --ignore-unfixed ecommerce-api
+
+      - name: Upload Trivy FS SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Build Docker image
+        run: docker build -t ecommerce-api:ci .
+
+      - name: Trivy image scan
+        working-directory: .
+        run: |
+          trivy image --format sarif --output trivy-image.sarif --ignore-unfixed ecommerce-api:ci
+
+      - name: Upload Trivy Image SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Generate SBOM
+        working-directory: .
+        run: |
+          trivy fs --format cyclonedx --output sbom.json ecommerce-api
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+
+      - name: Run tests
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+
+      - name: Build application
+        run: go build -v -o bin/ecommerce-api ./server/cmd
