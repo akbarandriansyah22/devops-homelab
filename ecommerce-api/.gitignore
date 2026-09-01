@@ -3,8 +3,7 @@
 .env.local
 .env.*.local
 
-# Docker files
-docker-compose.yml
+# Local compose overlay (tracked compose is docker-compose.yml)
 docker-compose.devsecops.yml
 
 # Logs

@@ -6,8 +6,8 @@ RESTful API for a small e-commerce catalog, cart, and orders.
 
 Built with Go · PostgreSQL · Fiber
 
-[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/BackendProject_and_Portofolio/ci.yml?branch=main&label=CI&logo=github&logoColor=white)](https://github.com/akbarandriansyah22/BackendProject_and_Portofolio/actions)
-[![GHCR](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/BackendProject_and_Portofolio/cd.yml?branch=main&label=GHCR%20publish&logo=docker&logoColor=white)](https://github.com/akbarandriansyah22/BackendProject_and_Portofolio/actions)
+[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/ci.yml?branch=main&label=CI&logo=github&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions)
+[![GHCR](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/cd.yml?branch=main&label=GHCR%20publish&logo=docker&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions)
 [![Go Version](https://img.shields.io/badge/Go-1.25.2-00ADD8?logo=go&logoColor=white)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./server/LICENSE)
 
@@ -40,16 +40,18 @@ CI lives at the **repository root** (`.github/workflows/`), not inside this fold
 ## Project Structure
 
 ```
-BackendProject_and_Portofolio/
+devops-homelab/
 |-- .github/workflows/
 |   |-- ci.yml                 # test, SAST, image scan (root)
 |   |-- cd.yml                 # build+push GHCR after CI success
-|-- e-commerce-api/
+|-- ecommerce-api/
+    |-- docker-compose.yml
     |-- migrations/001_init.sql
     |-- Dockerfile
     |-- .env.example
     |-- server/cmd/main.go
     |-- server/internal/...
+    |-- monitoring/
 ```
 
 ---
@@ -73,8 +75,8 @@ Default roles seeded by the schema: Admin (`id=1`), Customer (`id=2`).
 ### 1. Clone
 
 ```bash
-git clone https://github.com/akbarandriansyah22/BackendProject_and_Portofolio.git
-cd BackendProject_and_Portofolio/e-commerce-api
+git clone https://github.com/akbarandriansyah22/devops-homelab.git
+cd devops-homelab/ecommerce-api
 ```
 
 ### 2. Environment
@@ -206,14 +208,45 @@ Send JWT as `Authorization: Bearer <token>`. Role `1` is Admin, role `2` is Cust
 
 ---
 
+## Docker Compose
+
+From `ecommerce-api/`:
+
+```bash
+cp .env.example .env
+# JWT_SECRET and METRICS_TOKEN must be at least 32 characters:
+#   openssl rand -hex 32
+# METRICS_TOKEN in .env must match monitoring/secrets/metrics_token (Prometheus bearer_token_file)
+docker compose up -d --build
+```
+
+Health checks:
+
+```bash
+curl http://localhost:8080/live
+curl http://localhost:8080/ready
+curl http://localhost:8080/health
+```
+
+| Service | URL |
+| --- | --- |
+| API | http://localhost:8080 |
+| Grafana | http://localhost:3000 (admin / admin) |
+| Prometheus | http://localhost:9090 |
+| Alertmanager | http://localhost:9093 |
+
+Stop: `docker compose down`. Data volumes persist until `docker compose down -v`.
+
+---
+
 ## CI/CD
 
 Workflows are in the **monorepo root**: `.github/workflows/ci.yml` and `.github/workflows/cd.yml`.
 
-- **CI** runs when `e-commerce-api/**` or those workflow files change. Steps: modules, Gitleaks (`gitleaks detect` on the working tree), golangci-lint, GoSec (fails on high severity; SARIF upload is `continue-on-error`), Trivy, tests with coverage printed (no hard coverage gate), `go build ./server/cmd`.
-- **CD** runs only after that CI workflow completes **successfully**. It builds and pushes the image to GHCR. It does not SSH, apply Kubernetes manifests, or deploy to a staging host.
+- **CI** runs when `ecommerce-api/**` or those workflow files change. Steps: modules, Gitleaks (`gitleaks detect` on the working tree), golangci-lint, GoSec (fails on high severity; SARIF upload is `continue-on-error`), Trivy, tests with coverage printed (no hard coverage gate), `go build ./server/cmd`.
+- **CD** runs only after that CI workflow completes **successfully**. It builds and pushes the image to GHCR.
 
-Image: `ghcr.io/akbarandriansyah22/backendproject_and_portofolio/e-commerce-api`
+Image: `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api`
 
 ---
 
@@ -232,7 +265,7 @@ Mocks live in `server/internal/test/mocks/`.
 ## Docker
 
 ```bash
-docker build -t e-commerce-api:latest .
+docker build -t ecommerce-api:latest .
 docker run -p 8080:8080 \
   -e DB_HOST=host.docker.internal \
   -e DB_PORT=5432 \
@@ -242,7 +275,7 @@ docker run -p 8080:8080 \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e METRICS_TOKEN="$(openssl rand -hex 32)" \
   -e ENVIRONMENT=development \
-  e-commerce-api:latest
+  ecommerce-api:latest
 ```
 
 The image `HEALTHCHECK` hits `/live` so a brief database outage does not restart the container.
