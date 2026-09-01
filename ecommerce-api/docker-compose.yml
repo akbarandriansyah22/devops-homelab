@@ -33,7 +33,7 @@ services:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: "8080"
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      DB_HOST: host.docker.internal
+      DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: "5432"
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}

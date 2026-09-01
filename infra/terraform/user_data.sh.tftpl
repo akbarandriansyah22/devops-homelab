@@ -1,0 +1,53 @@
+#!/bin/bash
+set -euo pipefail
+
+dnf update -y
+dnf install -y docker
+systemctl enable --now docker
+usermod -aG docker ec2-user || true
+
+GHCR_IMAGE="${ghcr_image}"
+ENVIRONMENT="${environment}"
+DB_NAME="${db_name}"
+DB_USER="${db_user}"
+DB_PASSWORD='${db_password}'
+JWT_SECRET='${jwt_secret}'
+METRICS_TOKEN='${metrics_token}'
+GHCR_USERNAME="${ghcr_username}"
+GHCR_TOKEN='${ghcr_token}'
+
+if [ -n "$${GHCR_TOKEN}" ] && [ -n "$${GHCR_USERNAME}" ]; then
+  echo "$${GHCR_TOKEN}" | docker login ghcr.io -u "$${GHCR_USERNAME}" --password-stdin
+fi
+
+docker network create ecommerce || true
+
+# Postgres: no -p 5432:5432 (not published on 0.0.0.0)
+docker rm -f postgres || true
+docker run -d \
+  --name postgres \
+  --network ecommerce \
+  --restart unless-stopped \
+  -e POSTGRES_USER="$${DB_USER}" \
+  -e POSTGRES_PASSWORD="$${DB_PASSWORD}" \
+  -e POSTGRES_DB="$${DB_NAME}" \
+  postgres:16-alpine
+
+docker rm -f ecommerce-api || true
+docker run -d \
+  --name ecommerce-api \
+  --network ecommerce \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -e SERVER_HOST=0.0.0.0 \
+  -e SERVER_PORT=8080 \
+  -e ENVIRONMENT="$${ENVIRONMENT}" \
+  -e DB_HOST=postgres \
+  -e DB_PORT=5432 \
+  -e DB_USER="$${DB_USER}" \
+  -e DB_PASSWORD="$${DB_PASSWORD}" \
+  -e DB_NAME="$${DB_NAME}" \
+  -e DB_SSLMODE=disable \
+  -e JWT_SECRET="$${JWT_SECRET}" \
+  -e METRICS_TOKEN="$${METRICS_TOKEN}" \
+  "$${GHCR_IMAGE}"

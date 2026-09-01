@@ -27,6 +27,23 @@ go.work.sum
 # env file
 .env
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+!*.tfvars.example
+.terraformrc
+terraform.rc
+
+# Local Kubernetes secrets (copy from secret.example.yaml)
+k8s/base/secret.yaml
+
 # Editor/IDE
 # .idea/
 # .vscode/
