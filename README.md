@@ -1,32 +1,30 @@
 # devops-homelab
 
-Repositori ini adalah laboratorium portofolio DevOps. Isinya API e-commerce berbasis Go yang dijalankan sebagai kontainer, klaster Kubernetes lokal dengan kind, serta resep Terraform untuk jejaring VPC kecil di AWS.
+Repo lab untuk portofolio DevOps.
 
-Lingkupnya pembelajaran dan portofolio. Konfigurasi ini tidak dimaksudkan sebagai lingkungan produksi.
+Isinya API e-commerce Go, Docker Compose, klaster Kubernetes lokal (kind), dan resep Terraform untuk VPC kecil di AWS. Ini lab, bukan production.
 
-## Isi repositori
+## Isi repo
 
-| Direktori | Fungsi |
+| Folder | Isi |
 | --- | --- |
-| `ecommerce-api/` | API Go (Fiber), PostgreSQL, Docker Compose, dan tumpukan observabilitas lokal |
-| `k8s/` | Manifest Kubernetes untuk klaster kind |
-| `infra/terraform/` | VPC dua Availability Zone, security group, satu instans EC2 `t3.micro`, dan Elastic IP |
-| `.github/workflows/` | CI (lint, SAST, pemindaian image, pengujian) dan CD (publikasi image ke GHCR) |
+| `ecommerce-api/` | API Go (Fiber), Postgres, Compose, Prometheus/Grafana/Loki |
+| `k8s/` | Manifest untuk kind |
+| `infra/terraform/` | VPC 2 AZ, security group, satu EC2 `t3.micro`, Elastic IP |
+| `.github/workflows/` | CI (lint, SAST, scan, test) dan CD (push image ke GHCR) |
 
-Image yang diterbitkan CD:
+Image CD: `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api` (`latest` dan `main-<sha>`).
 
-`ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api` (`latest` dan `main-<sha>`).
+Yang tidak ada di repo ini: EKS, NAT Gateway, RDS, ALB, Ingress, Helm.
 
-Komponen berikut sengaja tidak dipakai: EKS, NAT Gateway, RDS, ALB, Ingress, dan Helm.
-
-## Menjalankan API secara lokal
+## Jalankan API di laptop
 
 ```bash
 cd ecommerce-api
 cp .env.example .env
 ```
 
-Isi `DB_PASSWORD`, `JWT_SECRET`, dan `METRICS_TOKEN` (contoh: `openssl rand -hex 32`). Untuk Compose, `DB_HOST` memakai nama service `postgres`.
+Isi `DB_PASSWORD`, `JWT_SECRET`, dan `METRICS_TOKEN`. Bisa pakai `openssl rand -hex 32`. Untuk Compose, set `DB_HOST=postgres`.
 
 ```bash
 docker compose up -d --build
@@ -34,27 +32,27 @@ curl -sf http://localhost:8080/live
 curl -sf http://localhost:8080/ready
 ```
 
-| Layanan | Alamat |
+| Layanan | URL |
 | --- | --- |
 | API | http://localhost:8080 |
 | Grafana | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |
 | Alertmanager | http://localhost:9093 |
 
-Kredensial Grafana terdapat di `ecommerce-api/docker-compose.yml`.
+User Grafana ada di `ecommerce-api/docker-compose.yml`.
 
 ## Kubernetes (kind)
 
-Dokumentasi langkah: [`k8s/README.md`](./k8s/README.md).
+Panduan lengkap ada di [`k8s/README.md`](./k8s/README.md).
 
-Jika image di GHCR belum dapat di-pull, bangun image di mesin lokal kemudian muat ke kind (`kind load`). Cara itu diuraikan sebagai opsi A pada berkas tersebut.
+Kalau `docker pull` dari GHCR gagal, build image di laptop lalu `kind load`. Itu opsi A di README kind.
 
 ```bash
 kind create cluster --name ecommerce
 cp k8s/base/secret.example.yaml k8s/base/secret.yaml
 ```
 
-Sunting `secret.yaml` di mesin lokal. Panjang `JWT_SECRET` dan `METRICS_TOKEN` minimal 32 karakter. Berkas itu tidak masuk git.
+Edit `secret.yaml` di laptop. `JWT_SECRET` dan `METRICS_TOKEN` minimal 32 karakter. File ini tidak di-commit.
 
 ```bash
 kubectl apply -f k8s/base
@@ -65,11 +63,11 @@ curl -sf http://127.0.0.1:8080/ready
 kind delete cluster --name ecommerce
 ```
 
-## Infrastruktur AWS (Terraform)
+## AWS (Terraform)
 
-Konfigurasi ada di [`infra/terraform/`](./infra/terraform). Wilayah bawaan: `ap-southeast-1`. Instans lab berada di subnet publik beserta Elastic IP. Subnet privat disediakan tanpa NAT Gateway.
+File ada di [`infra/terraform/`](./infra/terraform). Region default `ap-southeast-1`. EC2 ada di subnet publik + EIP. Subnet privat ada, tanpa NAT.
 
-Perintah tinjauan (tidak membuat sumber daya):
+Cek dulu tanpa membuat resource:
 
 ```bash
 cd infra/terraform
@@ -79,22 +77,22 @@ terraform validate
 terraform plan
 ```
 
-`terraform.tfvars` hanya diisi di mesin lokal dan tidak di-commit. `terraform apply` membuat sumber daya berbayar (EC2, EBS, alamat IPv4 publik). Rincian dan prosedur pembongkaran ada di [`infra/terraform/README.md`](./infra/terraform/README.md).
+Isi `terraform.tfvars` di laptop, jangan di-commit. `terraform apply` akan membuat EC2, EBS, dan IP publik — itu berbayar. Cara destroy ada di [`infra/terraform/README.md`](./infra/terraform/README.md).
 
 ## CI dan CD
 
-- **CI** — `.github/workflows/ci.yml` (`Go CI + DevSecOps Pipeline`). Dipicu perubahan pada `ecommerce-api/**` atau berkas workflow terkait.
-- **CD** — `.github/workflows/cd.yml` (`Publish image to GHCR`). Dipicu push ke `main` pada `ecommerce-api/**` atau `cd.yml`, serta tombol **Run workflow** di GitHub Actions. CD tidak menunggu hasil CI.
+- CI: `.github/workflows/ci.yml` (`Go CI + DevSecOps Pipeline`). Jalan kalau ada perubahan di `ecommerce-api/**` atau file workflow-nya.
+- CD: `.github/workflows/cd.yml` (`Publish image to GHCR`). Jalan saat push ke `main` di path yang sama, atau lewat **Run workflow**. CD tidak nunggu CI selesai.
 
-Paket Container Registry bersifat privat pada publikasi pertama. Pull tanpa autentikasi dapat ditolak. Setelah image tersedia:
+Package GHCR default-nya private. Pull tanpa login bisa ditolak (`denied`). Kalau image sudah ada:
 
 ```bash
 docker pull ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api:latest
 ```
 
-## Berkas yang tidak masuk git
+## Jangan di-commit
 
-`.env`, `terraform.tfvars`, `*.tfstate`, `k8s/base/secret.yaml`, dan token registri.
+`.env`, `terraform.tfvars`, `*.tfstate`, `k8s/base/secret.yaml`, token GHCR.
 
 ## Lisensi
 
