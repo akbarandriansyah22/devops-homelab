@@ -2,7 +2,7 @@
 
 # devops-homelab
 
-API e-commerce Go dipakai untuk latihan Docker, CI/CD ke GHCR, Kubernetes (kind), dan Terraform di AWS.
+API e-commerce Go dengan Docker, CI/CD ke GHCR, Kubernetes lokal (kind), dan Terraform untuk VPC plus EC2 di AWS.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/ci.yml?branch=main&label=CI&logo=github&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions/workflows/ci.yml)
 [![GHCR](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/cd.yml?branch=main&label=GHCR%20publish&logo=docker&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions/workflows/cd.yml)
@@ -15,22 +15,22 @@ API e-commerce Go dipakai untuk latihan Docker, CI/CD ke GHCR, Kubernetes (kind)
 
 | Folder | Isi |
 | --- | --- |
-| [`ecommerce-api/`](./ecommerce-api) | API Go (Fiber) + Postgres + Compose + Prometheus/Grafana/Loki |
+| [`ecommerce-api/`](./ecommerce-api) | API Go (Fiber), Postgres, Compose, Prometheus/Grafana/Loki |
 | [`k8s/`](./k8s) | Manifest kind |
-| [`infra/terraform/`](./infra/terraform) | VPC 2 AZ, security group, satu EC2 `t3.micro` + EIP (`ap-southeast-1`) |
-| [`.github/workflows/`](./.github/workflows) | CI dan publish image ke GHCR |
+| [`infra/terraform/`](./infra/terraform) | VPC 2 AZ, security group, satu EC2 `t3.micro` + EIP di `ap-southeast-1` |
+| [`.github/workflows/`](./.github/workflows) | CI dan publikasi image ke GHCR |
 
 Image: `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api` (`latest`, `main-<sha>`).
 
-Endpoint, schema, dan env API: [`ecommerce-api/README.md`](./ecommerce-api/README.md).
+Dokumentasi API: [`ecommerce-api/README.md`](./ecommerce-api/README.md).
 
 ## Stack
 
 Go 1.25.2, Fiber, PostgreSQL 16, Docker Compose, kind, Terraform, GitHub Actions, Prometheus, Grafana, Loki.
 
-## Cara jalan
+## Cara menjalankan
 
-Butuh Docker. kind dan Terraform hanya kalau mau bagian itu.
+Prasyarat: Docker. kind dan Terraform hanya untuk bagian masing-masing.
 
 ```bash
 git clone https://github.com/akbarandriansyah22/devops-homelab.git
@@ -38,7 +38,7 @@ cd devops-homelab/ecommerce-api
 cp .env.example .env
 ```
 
-Isi `DB_PASSWORD`, `JWT_SECRET`, `METRICS_TOKEN` (contoh `openssl rand -hex 32`). `DB_HOST=postgres`.
+Isi `DB_PASSWORD`, `JWT_SECRET`, dan `METRICS_TOKEN` (contoh: `openssl rand -hex 32`). Set `DB_HOST=postgres`.
 
 ```bash
 docker compose up -d --build
@@ -53,11 +53,11 @@ curl -sf http://localhost:8080/ready
 | Prometheus | http://localhost:9090 |
 | Alertmanager | http://localhost:9093 |
 
-Grafana: lihat `ecommerce-api/docker-compose.yml`.
+Kredensial Grafana ada di `ecommerce-api/docker-compose.yml`.
 
 ### kind
 
-Panduan: [`k8s/README.md`](./k8s/README.md). Kalau `docker pull` GHCR gagal (`denied`), build di laptop lalu `kind load`.
+Lihat [`k8s/README.md`](./k8s/README.md). Jika `docker pull` ke GHCR gagal (`denied`), bangun image di laptop lalu `kind load`.
 
 ```bash
 kind create cluster --name ecommerce
@@ -69,7 +69,7 @@ curl -sf http://127.0.0.1:8080/live
 
 ### Terraform
 
-Kode: [`infra/terraform/`](./infra/terraform). Default `plan` — belum membuat resource di AWS.
+Lihat [`infra/terraform/`](./infra/terraform). Perintah default adalah `plan`; resource AWS belum dibuat.
 
 ```bash
 cd infra/terraform
@@ -79,26 +79,26 @@ terraform validate
 terraform plan
 ```
 
-`apply` membuat EC2, EBS, dan IP publik (ada biaya). Destroy: lihat README di folder itu.
+`apply` membuat EC2, EBS, dan IP publik. Ada biaya. Langkah `destroy` ada di README folder itu.
 
 ## CI/CD
 
-- CI (`Go CI + DevSecOps Pipeline`) — perubahan di `ecommerce-api/**` atau file workflow.
-- CD (`Publish image to GHCR`) — push `main` ke path yang sama, atau **Run workflow**. CD tidak nunggu CI.
+- CI (`Go CI + DevSecOps Pipeline`) berjalan jika `ecommerce-api/**` atau file workflow berubah.
+- CD (`Publish image to GHCR`) berjalan pada push ke `main` di path tersebut, atau lewat **Run workflow**. CD tidak menunggu CI.
 
 ```bash
 docker pull ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api:latest
 ```
 
-Kalau dapat `denied`, package masih private. Login `ghcr.io` atau ubah visibility.
+Jika muncul `denied`, package masih private. Login ke `ghcr.io` atau ubah visibility package.
 
-## Keputusan
+## Keputusan desain
 
-- Kubernetes di kind, bukan EKS — control plane EKS berbayar per jam.
-- EC2 di subnet publik, tanpa NAT — NAT Gateway sendiri sudah mahal untuk lab.
-- Image bisa di-load ke kind tanpa GHCR — package baru default-nya private.
+- kind, bukan EKS — control plane EKS dikenai biaya per jam.
+- EC2 di subnet publik tanpa NAT Gateway — NAT Gateway terlalu mahal untuk lab ini.
+- Image bisa dimuat ke kind tanpa GHCR — package baru di GHCR default-nya private.
 
-Tidak ada EKS, NAT Gateway, RDS, ALB, Ingress, Helm.
+Tidak termasuk: EKS, NAT Gateway, RDS, ALB, Ingress, Helm.
 
 ## File lokal
 
@@ -108,7 +108,7 @@ Tidak ada EKS, NAT Gateway, RDS, ALB, Ingress, Helm.
 | `k8s/base/secret.yaml` | `k8s/base/secret.example.yaml` |
 | `infra/terraform/terraform.tfvars` | `terraform.tfvars.example` |
 
-State Terraform (`*.tfstate`) juga tetap di laptop.
+File state Terraform (`*.tfstate`) juga hanya di mesin lokal.
 
 ## License
 

@@ -6,10 +6,10 @@ RESTful API for a small e-commerce catalog, cart, and orders.
 
 Built with Go · PostgreSQL · Fiber
 
-[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/ci.yml?branch=main&label=CI&logo=github&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions)
-[![GHCR](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/cd.yml?branch=main&label=GHCR%20publish&logo=docker&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions)
-[![Go Version](https://img.shields.io/badge/Go-1.25.2-00ADD8?logo=go&logoColor=white)](https://golang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./server/LICENSE)
+[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/ci.yml?branch=main&label=CI&logo=github&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions/workflows/ci.yml)
+[![GHCR](https://img.shields.io/github/actions/workflow/status/akbarandriansyah22/devops-homelab/cd.yml?branch=main&label=GHCR%20publish&logo=docker&logoColor=white)](https://github.com/akbarandriansyah22/devops-homelab/actions/workflows/cd.yml)
+[![Go Version](https://img.shields.io/badge/Go-1.25.2-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../LICENSE)
 
 </div>
 
@@ -19,7 +19,7 @@ Built with Go · PostgreSQL · Fiber
 
 This folder contains a Go HTTP API for user auth, products, categories, cart, and orders. Layers are split into handlers, services, and PostgreSQL repositories behind interfaces in `server/internal/ports/`.
 
-CI lives at the **repository root** (`.github/workflows/`), not inside this folder. Successful CI on `main` publishes a Docker image to GitHub Container Registry. There is no automated deploy to a staging cluster.
+CI and CD live at the repository root (`.github/workflows/`), not in this folder. CD publishes the image to GitHub Container Registry on push to `main` (paths under `ecommerce-api/**` or `cd.yml`) or via **Run workflow**. There is no deploy to a cluster.
 
 ---
 
@@ -42,8 +42,8 @@ CI lives at the **repository root** (`.github/workflows/`), not inside this fold
 ```
 devops-homelab/
 |-- .github/workflows/
-|   |-- ci.yml                 # test, SAST, image scan (root)
-|   |-- cd.yml                 # build+push GHCR after CI success
+|   |-- ci.yml                 # test, SAST, image scan
+|   |-- cd.yml                 # build and push GHCR
 |-- ecommerce-api/
     |-- docker-compose.yml
     |-- migrations/001_init.sql
@@ -97,7 +97,7 @@ createdb ecommerce   # or: psql -U postgres -c "CREATE DATABASE ecommerce;"
 psql -U postgres -d ecommerce -f migrations/001_init.sql
 ```
 
-Docker Postgres example (mount the migration as init SQL):
+Docker Postgres example:
 
 ```bash
 docker run --name ecommerce-pg -e POSTGRES_PASSWORD=change-me \
@@ -121,7 +121,7 @@ curl -s http://localhost:8080/ready
 curl -s http://localhost:8080/health
 ```
 
-`/live` is process-up only (used by the Docker `HEALTHCHECK`). `/ready` pings PostgreSQL and returns 503 if the database is down. `/health` returns `{"status","db","version"}`.
+`/live` is process-up only (used by the Docker `HEALTHCHECK`). `/ready` pings PostgreSQL and returns 503 if the database is down. `/health` returns `status`, `db`, and `version`.
 
 ### 6. Example requests
 
@@ -216,11 +216,9 @@ From `ecommerce-api/`:
 cp .env.example .env
 # JWT_SECRET and METRICS_TOKEN must be at least 32 characters:
 #   openssl rand -hex 32
-# METRICS_TOKEN in .env must match monitoring/secrets/metrics_token (Prometheus bearer_token_file)
+# METRICS_TOKEN in .env must match monitoring/secrets/metrics_token
 docker compose up -d --build
 ```
-
-Health checks:
 
 ```bash
 curl http://localhost:8080/live
@@ -231,20 +229,20 @@ curl http://localhost:8080/health
 | Service | URL |
 | --- | --- |
 | API | http://localhost:8080 |
-| Grafana | http://localhost:3000 (admin / admin) |
+| Grafana | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |
 | Alertmanager | http://localhost:9093 |
 
-Stop: `docker compose down`. Data volumes persist until `docker compose down -v`.
+Stop: `docker compose down`. Volumes remain until `docker compose down -v`.
 
 ---
 
 ## CI/CD
 
-Workflows are in the **monorepo root**: `.github/workflows/ci.yml` and `.github/workflows/cd.yml`.
+Workflows: `.github/workflows/ci.yml` and `.github/workflows/cd.yml` at the repo root.
 
-- **CI** runs when `ecommerce-api/**` or those workflow files change. Steps: modules, Gitleaks (`gitleaks detect` on the working tree), golangci-lint, GoSec (fails on high severity; SARIF upload is `continue-on-error`), Trivy, tests with coverage printed (no hard coverage gate), `go build ./server/cmd`.
-- **CD** runs only after that CI workflow completes **successfully**. It builds and pushes the image to GHCR.
+- **CI** runs when `ecommerce-api/**` or those workflow files change (modules, Gitleaks, golangci-lint, GoSec, Trivy, tests, `go build`).
+- **CD** runs on push to `main` for those paths, or via **Run workflow**. It does not wait for CI.
 
 Image: `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api`
 
@@ -278,10 +276,10 @@ docker run -p 8080:8080 \
   ecommerce-api:latest
 ```
 
-The image `HEALTHCHECK` hits `/live` so a brief database outage does not restart the container.
+The image `HEALTHCHECK` hits `/live`, so a short database outage does not restart the container.
 
 ---
 
 ## License
 
-MIT. See [LICENSE](./server/LICENSE).
+MIT. See [LICENSE](../LICENSE).
