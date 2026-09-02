@@ -2,7 +2,7 @@
 
 # devops-homelab
 
-Lab portofolio DevOps: API Go, Kubernetes lokal (kind), dan resep Terraform AWS.
+API Go, Kubernetes di laptop (kind), dan Terraform untuk VPC + EC2 di AWS.
 
 Built with Go · Docker · kind · Terraform · GitHub Actions
 
@@ -17,13 +17,15 @@ Built with Go · Docker · kind · Terraform · GitHub Actions
 
 ## Overview
 
-Repo ini lab junior DevOps, bukan production.
+Tiga bagian yang saling nyambung:
 
-API e-commerce (Go + Fiber + PostgreSQL) jalan di Docker. Klaster Kubernetes-nya di laptop pakai kind. Resep AWS-nya Terraform: VPC 2 AZ, satu EC2 `t3.micro`, tanpa NAT/EKS.
+1. **ecommerce-api** — API e-commerce (Go, Fiber, PostgreSQL) di Docker Compose, plus Prometheus/Grafana/Loki.
+2. **k8s** — manifest yang sama dijalankan di klaster kind di laptop.
+3. **infra/terraform** — kode Terraform yang membuat VPC (2 AZ), security group, dan satu EC2 `t3.micro` di `ap-southeast-1`. Tidak ada NAT Gateway dan EKS.
 
-Dokumentasi API lengkap ada di [`ecommerce-api/README.md`](./ecommerce-api/README.md).
+Cara pakai API (endpoint, schema, env) ada di [`ecommerce-api/README.md`](./ecommerce-api/README.md).
 
-Image CD: `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api` (`latest` dan `main-<sha>`).
+Image dari CD: `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api` (`latest` dan `main-<sha>`).
 
 ---
 
@@ -33,13 +35,13 @@ Image CD: `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api` (`latest` da
 | --- | --- |
 | Go 1.25.2 + Fiber | API |
 | PostgreSQL 16 | Database |
-| Docker Compose | Jalanin API + observability di laptop |
-| kind + kubectl | Kubernetes lokal |
-| Terraform | Resep VPC/EC2 di AWS (`ap-southeast-1`) |
-| GitHub Actions | CI (lint, SAST, Trivy, test) dan CD (push GHCR) |
-| Prometheus / Grafana / Loki | Metrics dan log lokal |
+| Docker Compose | API + observability di laptop |
+| kind + kubectl | Kubernetes di laptop |
+| Terraform | VPC, security group, dan EC2 di AWS (`ap-southeast-1`) |
+| GitHub Actions | CI (lint, SAST, Trivy, test) dan CD (push image ke GHCR) |
+| Prometheus / Grafana / Loki | Metrics dan log di laptop |
 
-Tidak dipakai: EKS, NAT Gateway, RDS, ALB, Ingress, Helm.
+Tidak ada EKS, NAT Gateway, RDS, ALB, Ingress, atau Helm.
 
 ---
 
@@ -70,7 +72,7 @@ devops-homelab/
 ### Prerequisites
 
 - Docker dan Docker Compose
-- kind + kubectl (untuk lab Kubernetes)
+- kind + kubectl (untuk Kubernetes)
 - Terraform (untuk `plan` AWS)
 - Git
 
@@ -123,8 +125,6 @@ curl -sf http://127.0.0.1:8080/ready
 kind delete cluster --name ecommerce
 ```
 
-`k8s/base/secret.yaml` tidak di-commit.
-
 ### 4. Terraform
 
 File: [`infra/terraform/`](./infra/terraform). Region default `ap-southeast-1`.
@@ -137,7 +137,7 @@ terraform validate
 terraform plan
 ```
 
-`terraform.tfvars` hanya di laptop. `apply` membuat EC2, EBS, dan IP publik (berbayar). Cara destroy ada di [`infra/terraform/README.md`](./infra/terraform/README.md).
+`apply` membuat EC2, EBS, dan IP publik — ada biaya AWS. Cara hapus resource: [`infra/terraform/README.md`](./infra/terraform/README.md).
 
 ---
 
@@ -156,9 +156,18 @@ docker pull ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api:latest
 
 ---
 
-## Jangan di-commit
+## File lokal
 
-`.env`, `terraform.tfvars`, `*.tfstate`, `k8s/base/secret.yaml`, token GHCR.
+Salin dari template, isi di laptop, biarkan di `.gitignore`:
+
+| File | Isi |
+| --- | --- |
+| `ecommerce-api/.env` | password DB, JWT, metrics token |
+| `k8s/base/secret.yaml` | secret Kubernetes |
+| `infra/terraform/terraform.tfvars` | CIDR SSH, nama key pair, secret app |
+| `*.tfstate` | state Terraform |
+
+Template-nya: `.env.example`, `k8s/base/secret.example.yaml`, `terraform.tfvars.example`.
 
 ---
 
