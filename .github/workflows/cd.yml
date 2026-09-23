@@ -1,15 +1,14 @@
 name: Publish image to GHCR
 
-# CD lama memakai workflow_run. Trigger itu hanya tembak setelah CI
-# bernama persis "Go CI + DevSecOps Pipeline" selesai di main.
-# CI ber-path-filter, jadi merge k8s/terraform tidak menjalankan CI — CD kosong.
+# Image hanya dipublish setelah CI bernama "Go CI + DevSecOps Pipeline"
+# selesai sukses di main. Perubahan k8s/terraform tidak memicu CI,
+# jadi tidak memicu publish — itu disengaja.
 on:
+  workflow_run:
+    workflows: ["Go CI + DevSecOps Pipeline"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
-  push:
-    branches: ["main"]
-    paths:
-      - "ecommerce-api/**"
-      - ".github/workflows/cd.yml"
 
 permissions:
   contents: read
@@ -25,11 +24,14 @@ concurrency:
 
 jobs:
   publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

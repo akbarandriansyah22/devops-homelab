@@ -78,7 +78,7 @@ jobs:
           wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz \
             | tar -xz -C /usr/local/bin trivy
 
-      - name: Trivy filesystem scan
+      - name: Trivy filesystem scan (SARIF)
         working-directory: .
         run: |
           trivy fs --format sarif --output trivy-fs.sarif --ignore-unfixed ecommerce-api
@@ -91,10 +91,15 @@ jobs:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
 
+      - name: Trivy filesystem gate
+        working-directory: .
+        run: |
+          trivy fs --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 ecommerce-api
+
       - name: Build Docker image
         run: docker build -t ecommerce-api:ci .
 
-      - name: Trivy image scan
+      - name: Trivy image scan (SARIF)
         working-directory: .
         run: |
           trivy image --format sarif --output trivy-image.sarif --ignore-unfixed ecommerce-api:ci
@@ -106,6 +111,11 @@ jobs:
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
+
+      - name: Trivy image gate
+        working-directory: .
+        run: |
+          trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 ecommerce-api:ci
 
       - name: Generate SBOM
         working-directory: .
