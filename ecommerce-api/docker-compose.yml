@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
       POSTGRES_DB: ${DB_NAME:-ecommerce}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro

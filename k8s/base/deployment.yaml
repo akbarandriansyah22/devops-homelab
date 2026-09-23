@@ -15,10 +15,23 @@ spec:
       labels:
         app: ecommerce-api
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ecommerce-api
           image: ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 8080
@@ -27,6 +40,9 @@ spec:
                 name: ecommerce-api
             - secretRef:
                 name: ecommerce-api
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 50m
@@ -46,3 +62,6 @@ spec:
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
+      volumes:
+        - name: tmp
+          emptyDir: {}
