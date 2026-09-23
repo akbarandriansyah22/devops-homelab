@@ -15,11 +15,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o app \
     ./server/cmd
 
-FROM alpine:3.20.3
+FROM alpine:3.22.6
 
 WORKDIR /app
 
-RUN apk --no-cache add ca-certificates curl && \
+RUN apk --no-cache upgrade && \
+    apk --no-cache add ca-certificates curl && \
     addgroup -S appgroup && \
     adduser -S -G appgroup -H -D appuser
 
