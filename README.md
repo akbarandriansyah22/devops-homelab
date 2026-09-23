@@ -28,8 +28,8 @@ Dokumentasi API: [`ecommerce-api/README.md`](./ecommerce-api/README.md).
 | --- | --- |
 | Backend | API Go (Fiber), konfigurasi lingkungan, health check (`/live`, `/ready`) |
 | Containerisasi | Docker multi-service, Compose, image ke GHCR |
-| CI/CD | GitHub Actions: pipeline CI + publish image |
-| Kubernetes | Manifest kind, secret management, port-forward |
+| CI/CD | GitHub Actions: gate SAST/scan, CD hanya setelah CI hijau |
+| Kubernetes | Manifest kind, secret, NetworkPolicy, Ingress + TLS lab |
 | Infrastructure as Code | Terraform: VPC 2 AZ, security group, EC2 `t3.micro` + EIP |
 | Observability | Prometheus, Grafana, Loki, Alertmanager |
 | Engineering judgment | Trade-off biaya (kind vs EKS, tanpa NAT Gateway), batasan cakupan yang eksplisit |
@@ -46,7 +46,7 @@ Dokumentasi API: [`ecommerce-api/README.md`](./ecommerce-api/README.md).
 │ (Go + Fiber)  │
 └──────┴───────┘
         │
-   ┌───┴─────┐
+   ┌──┴─────┐
    ▼          ▼
 ┌────────┐  ┌──────────────────┐
 │ Compose│  │ kind (local K8s) │
@@ -55,19 +55,20 @@ Dokumentasi API: [`ecommerce-api/README.md`](./ecommerce-api/README.md).
 └────────┘
         │ opsional
         ▼
-┌──────────────────────────────┐
+┌─────────────────────────────┐
 │ AWS (Terraform)              │
 │ VPC 2 AZ · SG · EC2 + EIP    │
 │ wilayah: ap-southeast-1      │
-└──────────────────────────────┘
+└─────────────────────────────┘
 ```
 
 **Alur singkat**
 
 1. Developer mengubah kode di `ecommerce-api/`
-2. CI berjalan pada path terkait; CD mempublikasikan image ke `ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api`
-3. Lokal: jalankan via Compose, atau muat image ke cluster kind
-4. Cloud: provision jaringan dan mesin uji dengan Terraform (default hanya `plan`)
+2. CI berjalan pada path terkait dan harus hijau (Gitleaks, GoSec high, Trivy HIGH/CRITICAL)
+3. CD mempublikasikan image ke GHCR hanya setelah CI di `main` sukses
+4. Lokal: jalankan via Compose, atau muat image ke cluster kind + Ingress TLS
+5. Cloud: provision jaringan dan mesin uji dengan Terraform (default hanya `plan`)
 
 ## Stack teknologi
 
@@ -127,12 +128,12 @@ Kredensial Grafana tersedia di `ecommerce-api/docker-compose.yml`.
 Ikuti [`k8s/README.md`](./k8s/README.md). Jika `docker pull` dari GHCR gagal (`denied`), bangun image secara lokal lalu muat ke cluster dengan `kind load`.
 
 ```bash
-kind create cluster --name ecommerce
+kind create cluster --name ecommerce --config k8s/kind-config.yaml
 cp k8s/base/secret.example.yaml k8s/base/secret.yaml
 kubectl apply -f k8s/base
-kubectl -n ecommerce port-forward svc/ecommerce-api 8080:8080
-curl -sf http://127.0.0.1:8080/live
 ```
+
+HTTPS lewat Ingress: lihat [`k8s/README.md`](./k8s/README.md) (CA lab + `https://ecommerce.local`). Port-forward `8080` tetap bisa dipakai sebagai fallback.
 
 ### 3. Infrastruktur AWS (Terraform)
 
@@ -152,10 +153,10 @@ Perintah `apply` membuat EC2, EBS, dan alamat IP publik — ada biaya. Langkah `
 
 | Workflow | Pemicu | Fungsi |
 | --- | --- | --- |
-| **CI** — `Go CI + DevSecOps Pipeline` | Perubahan pada `ecommerce-api/**` atau file workflow | Uji dan pipeline DevSecOps |
-| **CD** — `Publish image to GHCR` | Push ke `main` pada path terkait, atau **Run workflow** manual | Publikasikan image container |
+| **CI** — `Go CI + DevSecOps Pipeline` | Perubahan pada `ecommerce-api/**` atau file workflow | Lint, tes, Gitleaks, GoSec, Trivy. HIGH/CRITICAL gagalkan job |
+| **CD** — `Publish image to GHCR` | CI di `main` selesai sukses, atau **Run workflow** manual | Publikasikan image container |
 
-CD tidak menunggu hasil CI.
+CD otomatis tidak berjalan jika CI gagal. `workflow_dispatch` tetap ada untuk publish manual di lab.
 
 ```bash
 docker pull ghcr.io/akbarandriansyah22/devops-homelab/ecommerce-api:latest
@@ -173,7 +174,7 @@ Pilihan di bawah dibuat agar lab tetap realistis secara teknis, tetapi hemat bia
 | EC2 di subnet publik tanpa NAT Gateway | NAT Gateway terlalu mahal untuk skala lab |
 | Image dapat dimuat ke kind tanpa GHCR | Package baru di GHCR bersifat private secara default |
 
-**Di luar cakupan saat ini:** EKS, NAT Gateway, RDS, ALB, Ingress, Helm.
+**Di luar cakupan saat ini:** EKS, NAT Gateway, RDS, ALB, Helm, public CA / Let's Encrypt.
 
 ## Batasan & rencana berikutnya
 
@@ -185,9 +186,8 @@ Pilihan di bawah dibuat agar lab tetap realistis secara teknis, tetapi hemat bia
 
 **Arah pengembangan (contoh)**
 
-- Ingress + TLS di kind
 - Remote state Terraform dan modul yang lebih rapi
-- Pipeline yang menunggu CI hijau sebelum CD
+- Image signing (Cosign) dan pin digest di Deployment
 - Helm chart atau Kustomize overlay untuk environment
 
 ## File konfigurasi lokal
