@@ -9,8 +9,10 @@ func TestRateLimiter_BlocksAfterCapacity(t *testing.T) {
 	rl := NewRateLimiter(3, time.Minute)
 	key := "ip:1.2.3.4"
 
-	if !rl.IsAllowed(key) || !rl.IsAllowed(key) || !rl.IsAllowed(key) {
-		t.Fatal("first 3 requests must pass")
+	for i := 0; i < 3; i++ {
+		if !rl.IsAllowed(key) {
+			t.Fatalf("request %d must pass", i+1)
+		}
 	}
 	if rl.IsAllowed(key) {
 		t.Fatal("4th request must be blocked")
