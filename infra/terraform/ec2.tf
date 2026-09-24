@@ -26,18 +26,27 @@ resource "aws_instance" "app" {
   key_name               = var.key_name != "" ? var.key_name : null
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    ghcr_image     = var.ghcr_image
-    environment    = var.environment
-    db_name        = var.db_name
-    db_user        = var.db_user
-    db_password    = var.db_password
-    jwt_secret     = var.jwt_secret
-    metrics_token  = var.metrics_token
-    ghcr_username  = var.ghcr_username
-    ghcr_token     = var.ghcr_token
+    ghcr_image    = var.ghcr_image
+    environment   = var.environment
+    db_name       = var.db_name
+    db_user       = var.db_user
+    db_password   = var.db_password
+    jwt_secret    = var.jwt_secret
+    metrics_token = var.metrics_token
+    ghcr_username = var.ghcr_username
+    ghcr_token    = var.ghcr_token
   })
 
   user_data_replace_on_change = true
+
+  root_block_device {
+    encrypted = true
+  }
+
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
 
   tags = {
     Name = "${local.project}-ec2"
