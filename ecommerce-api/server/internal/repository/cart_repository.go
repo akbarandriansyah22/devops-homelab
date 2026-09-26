@@ -155,9 +155,12 @@ func (r *CartRepository) GetCartItems(cartID int) ([]models.CartItemWithProduct,
 			&item.Product.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan cart item: %w", err)
 		}
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return items, nil

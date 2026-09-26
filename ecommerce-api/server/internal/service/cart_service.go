@@ -29,30 +29,45 @@ func NewCartService(
 	}
 }
 
-// GetCart gets user's cart
+// GetCart gets user's cart. User tanpa baris cart mendapat cart kosong (200).
 func (s *CartService) GetCart(ctx context.Context, userID int) (*models.CartResponse, error) {
 	cart, err := s.cartRepo.GetByUserID(ctx, userID)
-	if err != nil {
-		s.logger.Error("CartService.GetCart failed", err)
-		return nil, fmt.Errorf("failed to get cart")
+	if err != nil || cart == nil {
+		cart, err = s.cartRepo.Create(ctx, userID)
+		if err != nil || cart == nil {
+			s.logger.Error("CartService.GetCart failed", err)
+			return nil, fmt.Errorf("failed to get cart")
+		}
 	}
 
-	if cart == nil {
-		return nil, fmt.Errorf("cart not found")
-	}
+	return s.cartResponse(ctx, cart)
+}
 
-	_, err = s.cartRepo.GetCartItems(ctx, cart.ID)
+func (s *CartService) cartResponse(ctx context.Context, cart *models.Cart) (*models.CartResponse, error) {
+	rows, err := s.cartRepo.GetCartItems(ctx, cart.ID)
 	if err != nil {
 		s.logger.Error("CartService.GetCart failed to get items", err)
-		return nil, fmt.Errorf("failed to get cart items")
+		return nil, fmt.Errorf("failed to get cart items: %w", err)
+	}
+
+	items := make([]models.CartItemWithProduct, 0, len(rows))
+	var totalPrice float64
+	var totalQty int
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		items = append(items, *row)
+		totalQty += row.Quantity
+		totalPrice += row.Price * float64(row.Quantity)
 	}
 
 	return &models.CartResponse{
 		ID:            cart.ID,
 		UserID:        cart.UserID,
-		Items:         make([]models.CartItemWithProduct, 0),
-		TotalPrice:    0,
-		TotalQuantity: 0,
+		Items:         items,
+		TotalPrice:    totalPrice,
+		TotalQuantity: totalQty,
 	}, nil
 }
 
@@ -78,7 +93,11 @@ func (s *CartService) AddItem(ctx context.Context, userID, productID, quantity i
 		}
 	}
 
-	return s.cartRepo.AddItem(ctx, cart.ID, productID, quantity)
+	if err := s.cartRepo.AddItem(ctx, cart.ID, productID, quantity); err != nil {
+		s.logger.Error("CartService.AddItem failed", err)
+		return fmt.Errorf("failed to add cart item: %w", err)
+	}
+	return nil
 }
 
 // RemoveItem removes item from cart

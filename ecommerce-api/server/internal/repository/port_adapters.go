@@ -252,23 +252,16 @@ func (r *CartRepositoryPort) RemoveItem(ctx context.Context, cartID, cartItemID 
 	_ = cartID
 	return r.inner.RemoveItem(cartItemID)
 }
-func (r *CartRepositoryPort) GetCartItems(ctx context.Context, cartID int) ([]*models.CartItem, error) {
+func (r *CartRepositoryPort) GetCartItems(ctx context.Context, cartID int) ([]*models.CartItemWithProduct, error) {
 	_ = ctx
 	items, err := r.inner.GetCartItems(cartID)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]*models.CartItem, len(items))
-	for i, it := range items {
-		out[i] = &models.CartItem{
-			ID:        it.ID,
-			CartID:    it.CartID,
-			ProductID: it.ProductID,
-			Quantity:  it.Quantity,
-			Price:     it.Price,
-			CreatedAt: it.CreatedAt,
-			UpdatedAt: it.UpdatedAt,
-		}
+	out := make([]*models.CartItemWithProduct, len(items))
+	for i := range items {
+		item := items[i]
+		out[i] = &item
 	}
 	return out, nil
 }

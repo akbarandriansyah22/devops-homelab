@@ -23,8 +23,8 @@ type CartRepository interface {
 	// RemoveItem menghapus item dari cart
 	RemoveItem(ctx context.Context, cartID, cartItemID int) error
 
-	// GetCartItems mengambil semua item di cart
-	GetCartItems(ctx context.Context, cartID int) ([]*models.CartItem, error)
+	// GetCartItems mengambil semua item di cart beserta product (JOIN).
+	GetCartItems(ctx context.Context, cartID int) ([]*models.CartItemWithProduct, error)
 
 	// ClearCart menghapus semua item di cart
 	ClearCart(ctx context.Context, cartID int) error
