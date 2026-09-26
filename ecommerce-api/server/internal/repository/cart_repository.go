@@ -134,6 +134,7 @@ func (r *CartRepository) GetCartItems(cartID int) ([]models.CartItemWithProduct,
 	items := []models.CartItemWithProduct{}
 	for rows.Next() {
 		var item models.CartItemWithProduct
+		var description, sku, imageURL sql.NullString
 		err := rows.Scan(
 			&item.ID,
 			&item.CartID,
@@ -145,15 +146,18 @@ func (r *CartRepository) GetCartItems(cartID int) ([]models.CartItemWithProduct,
 			&item.Product.ID,
 			&item.Product.Name,
 			&item.Product.Slug,
-			&item.Product.Description,
+			&description,
 			&item.Product.Price,
 			&item.Product.Stock,
-			&item.Product.SKU,
-			&item.Product.ImageURL,
+			&sku,
+			&imageURL,
 			&item.Product.IsActive,
 			&item.Product.CreatedAt,
 			&item.Product.UpdatedAt,
 		)
+		item.Product.Description = models.NullString(description)
+		item.Product.SKU = models.NullString(sku)
+		item.Product.ImageURL = models.NullString(imageURL)
 		if err != nil {
 			return nil, fmt.Errorf("scan cart item: %w", err)
 		}

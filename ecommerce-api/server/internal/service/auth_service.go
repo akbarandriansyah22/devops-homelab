@@ -92,14 +92,21 @@ func (s *AuthService) Register(ctx context.Context, req *models.RegisterRequest)
 	// Return login response
 	return &models.LoginResponse{
 		Token: token,
-		User: models.UserResponse{
-			ID:       user.ID,
-			Email:    user.Email,
-			FullName: user.Name,
-			RoleID:   user.RoleID,
-			IsActive: user.IsActive,
-		},
+		User: userResponse(user),
 	}, nil
+}
+
+func userResponse(user *models.User) models.UserResponse {
+	return models.UserResponse{
+		ID:        user.ID,
+		Email:     user.Email,
+		FullName:  user.Name,
+		Phone:     models.NullString(user.Phone),
+		Address:   models.NullString(user.Address),
+		RoleID:    user.RoleID,
+		IsActive:  user.IsActive,
+		CreatedAt: user.CreatedAt,
+	}
 }
 
 // Login handles user login business logic
@@ -140,13 +147,7 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest) (*mod
 	// Return login response
 	return &models.LoginResponse{
 		Token: token,
-		User: models.UserResponse{
-			ID:       user.ID,
-			Email:    user.Email,
-			FullName: user.Name,
-			RoleID:   user.RoleID,
-			IsActive: user.IsActive,
-		},
+		User: userResponse(user),
 	}, nil
 }
 
@@ -158,13 +159,8 @@ func (s *AuthService) GetProfile(ctx context.Context, userID int) (*models.UserR
 		return nil, fmt.Errorf("user not found")
 	}
 
-	return &models.UserResponse{
-		ID:       user.ID,
-		Email:    user.Email,
-		FullName: user.Name,
-		RoleID:   user.RoleID,
-		IsActive: user.IsActive,
-	}, nil
+	profile := userResponse(user)
+	return &profile, nil
 }
 
 // UpdateProfile updates user profile
@@ -203,13 +199,8 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID int, fullName, e
 
 	s.logger.Info("Profile updated: UserID=%d", userID)
 
-	return &models.UserResponse{
-		ID:       user.ID,
-		Email:    user.Email,
-		FullName: user.Name,
-		RoleID:   user.RoleID,
-		IsActive: user.IsActive,
-	}, nil
+	profile := userResponse(user)
+	return &profile, nil
 }
 
 // ChangePassword changes user password

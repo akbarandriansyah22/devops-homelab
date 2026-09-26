@@ -46,8 +46,8 @@ export function CheckoutForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-lg space-y-3 rounded border border-neutral-200 bg-white p-4">
-      <h1 className="text-xl font-semibold">Checkout</h1>
+    <form onSubmit={onSubmit} className="mx-auto my-10 max-w-lg space-y-3 border border-neutral-200 p-6">
+      <h1 className="font-serif text-3xl font-normal">Checkout</h1>
       {error ? <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
       <label className="block text-sm">
         Alamat pengiriman
@@ -77,8 +77,8 @@ export function CheckoutForm() {
       <p className="text-xs text-neutral-600">
         API menolak checkout tanpa payment_method. Nilai yang diterima: bank_transfer, credit_card, e_wallet, cod.
       </p>
-      <button type="submit" disabled={pending} className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-60">
-        {pending ? "Memproses…" : "Buat order"}
+      <button type="submit" disabled={pending} className="w-full bg-neutral-950 py-3 text-sm text-white disabled:opacity-60">
+        {pending ? "Placing…" : "Place order"}
       </button>
     </form>
   );

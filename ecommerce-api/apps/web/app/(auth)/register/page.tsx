@@ -39,8 +39,8 @@ export default function Page() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto max-w-sm space-y-3 rounded border border-neutral-200 bg-white p-4">
-      <h1 className="text-xl font-semibold">Register</h1>
+    <form onSubmit={onSubmit} className="mx-auto my-12 max-w-sm space-y-3 border border-neutral-200 p-6">
+      <h1 className="font-serif text-3xl font-normal">Register</h1>
       {error ? (
         <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
       ) : null}
@@ -56,8 +56,8 @@ export default function Page() {
         Password
         <input name="password" type="password" required className="mt-1 w-full rounded border border-neutral-300 px-2 py-1" />
       </label>
-      <button type="submit" disabled={pending} className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-60">
-        {pending ? "Mendaftar…" : "Daftar"}
+      <button type="submit" disabled={pending} className="w-full bg-neutral-950 py-3 text-sm text-white disabled:opacity-60">
+        {pending ? "Creating…" : "Create account"}
       </button>
       <p className="text-sm">
         Sudah punya akun?{" "}

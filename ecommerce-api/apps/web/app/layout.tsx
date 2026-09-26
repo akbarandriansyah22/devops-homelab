@@ -1,7 +1,12 @@
-import Link from "next/link";
+import { Inter, Playfair_Display } from "next/font/google";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
 import { getSession } from "@/lib/auth";
 import { getCart } from "@/lib/shop";
 import "./globals.css";
+
+const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const serif = Playfair_Display({ subsets: ["latin"], variable: "--font-serif", weight: ["400", "500"] });
 
 export const metadata = {
   title: "SecureShop",
@@ -13,43 +18,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cartCount = cart && cart.error === null ? cart.data.total_quantity : 0;
 
   return (
-    <html lang="id">
-      <body className="min-h-screen bg-neutral-50 text-neutral-900">
-        <header className="border-b border-neutral-200 bg-white">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-            <span className="text-lg font-semibold">SecureShop</span>
-            <nav className="flex items-center gap-3 text-sm">
-              <Link href="/" className="underline">
-                Home
-              </Link>
-              <Link href="/cart" className="underline">
-                Cart{cartCount > 0 ? ` (${cartCount})` : ""}
-              </Link>
-              {session ? (
-                <>
-                  <Link href="/account" className="underline">
-                    {session.email}
-                  </Link>
-                  <form action="/api/auth/logout" method="post">
-                    <button type="submit" className="underline">
-                      Logout
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <>
-                  <Link href="/login" className="underline">
-                    Login
-                  </Link>
-                  <Link href="/register" className="underline">
-                    Register
-                  </Link>
-                </>
-              )}
-            </nav>
-          </div>
-        </header>
-        <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+    <html lang="en">
+      <body className={`${sans.variable} ${serif.variable} min-h-screen bg-white font-sans text-neutral-950`}>
+        <SiteHeader session={session ? { email: session.email, role_id: session.role_id } : null} cartCount={cartCount} />
+        <main>{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

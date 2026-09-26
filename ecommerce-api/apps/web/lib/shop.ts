@@ -53,6 +53,24 @@ export async function getCart(): Promise<ShopResult<Cart>> {
   }
 }
 
+export async function getAdminOrders(): Promise<ShopResult<{ items: Order[]; total: number }>> {
+  try {
+    const res = await authed("/api/admin/orders?page=1&limit=50");
+    const body = await readJson(res);
+    if (!res.ok) return { data: null, error: apiErrorMessage(body, "Order admin gagal dimuat") };
+    const page = body as {
+      data?: Order[] | null;
+      total?: number;
+      meta?: PageMeta;
+    };
+    const items = Array.isArray(page?.data) ? page.data : [];
+    const total = typeof page?.total === "number" ? page.total : page?.meta?.total_items ?? items.length;
+    return { data: { items, total }, error: null };
+  } catch {
+    return { data: null, error: "API order tidak terjangkau." };
+  }
+}
+
 export async function getOrders(): Promise<ShopResult<{ items: Order[]; meta: PageMeta | null }>> {
   try {
     const res = await authed("/api/orders?page=1&limit=50");

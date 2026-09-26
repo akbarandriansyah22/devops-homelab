@@ -67,44 +67,42 @@ func (s *OrderService) ListOrders(ctx context.Context, userID int, page, limit i
 // ============================================
 
 // GetUserOrders gets all orders for a user with pagination
-func (s *OrderService) GetUserOrders(userID, page, limit int) ([]*models.Order, int, error) {
+func (s *OrderService) GetUserOrders(userID, page, limit int) ([]*models.OrderDetailResponse, int, error) {
 	ctx := context.Background()
 	orders, total, err := s.orderRepo.GetUserOrders(ctx, userID, page, limit)
 	if err != nil {
 		s.logger.Error("OrderService.GetUserOrders failed", err)
 		return nil, 0, fmt.Errorf("failed to get user orders")
 	}
-	return orders, total, nil
+	mapped, err := s.mapOrders(ctx, orders)
+	if err != nil {
+		return nil, 0, err
+	}
+	return mapped, total, nil
 }
 
 // GetByID gets order by ID
-func (s *OrderService) GetByID(orderID int) (*models.Order, error) {
+func (s *OrderService) GetByID(orderID int) (*models.OrderDetailResponse, error) {
 	ctx := context.Background()
 	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
+	if err != nil || order == nil {
 		return nil, fmt.Errorf("order not found")
 	}
-	if order == nil {
-		return nil, fmt.Errorf("order not found")
-	}
-	return order, nil
+	return s.mapOrder(ctx, order)
 }
 
 // GetByOrderNumber gets order by order number
-func (s *OrderService) GetByOrderNumber(orderNumber string) (*models.Order, error) {
+func (s *OrderService) GetByOrderNumber(orderNumber string) (*models.OrderDetailResponse, error) {
 	ctx := context.Background()
 	order, err := s.orderRepo.GetByOrderNumber(ctx, orderNumber)
-	if err != nil {
+	if err != nil || order == nil {
 		return nil, fmt.Errorf("order not found")
 	}
-	if order == nil {
-		return nil, fmt.Errorf("order not found")
-	}
-	return order, nil
+	return s.mapOrder(ctx, order)
 }
 
 // CreateFromCart creates order from cart
-func (s *OrderService) CreateFromCart(userID int, shippingAddress, paymentMethod, notes string) (*models.Order, error) {
+func (s *OrderService) CreateFromCart(userID int, shippingAddress, shippingPhone, paymentMethod, notes string) (*models.OrderDetailResponse, error) {
 	ctx := context.Background()
 
 	// Get user's cart
@@ -132,6 +130,7 @@ func (s *OrderService) CreateFromCart(userID int, shippingAddress, paymentMethod
 		OrderNumber:     orderNumber,
 		Status:          "pending",
 		ShippingAddress: shippingAddress,
+		ShippingPhone:   shippingPhone,
 		PaymentMethod:   paymentMethod,
 		Notes:           sql.NullString{String: notes, Valid: notes != ""},
 	}
@@ -162,7 +161,7 @@ func (s *OrderService) CreateFromCart(userID int, shippingAddress, paymentMethod
 
 	s.logger.Info("Order created from cart: UserID=%d, OrderID=%d, OrderNumber=%s", userID, order.ID, order.OrderNumber)
 
-	return order, nil
+	return s.mapOrder(ctx, order)
 }
 
 // UpdateStatus updates order status
@@ -243,7 +242,46 @@ func (s *OrderService) GetOrderStats() (interface{}, error) {
 }
 
 // GetAllOrders gets all orders with optional filtering
-func (s *OrderService) GetAllOrders(page, limit int, status string, userID int) ([]*models.Order, int, error) {
+func (s *OrderService) mapOrders(ctx context.Context, orders []*models.Order) ([]*models.OrderDetailResponse, error) {
+	out := make([]*models.OrderDetailResponse, 0, len(orders))
+	for _, order := range orders {
+		mapped, err := s.mapOrder(ctx, order)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, mapped)
+	}
+	return out, nil
+}
+
+func (s *OrderService) mapOrder(ctx context.Context, order *models.Order) (*models.OrderDetailResponse, error) {
+	rows, err := s.orderRepo.ListItemsWithProducts(ctx, order.ID)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]models.OrderItemWithProduct, 0, len(rows))
+	for _, row := range rows {
+		if row != nil {
+			items = append(items, *row)
+		}
+	}
+	return &models.OrderDetailResponse{
+		ID:              order.ID,
+		OrderNumber:     order.OrderNumber,
+		UserID:          order.UserID,
+		Status:          order.Status,
+		TotalAmount:     order.TotalAmount,
+		PaymentMethod:   order.PaymentMethod,
+		ShippingAddress: order.ShippingAddress,
+		ShippingPhone:   order.ShippingPhone,
+		Notes:           models.NullString(order.Notes),
+		Items:           items,
+		CreatedAt:       order.CreatedAt,
+		UpdatedAt:       order.UpdatedAt,
+	}, nil
+}
+
+func (s *OrderService) GetAllOrders(page, limit int, status string, userID int) ([]*models.OrderDetailResponse, int, error) {
 	ctx := context.Background()
 
 	// Build filter
@@ -260,5 +298,9 @@ func (s *OrderService) GetAllOrders(page, limit int, status string, userID int) 
 		return nil, 0, fmt.Errorf("failed to get orders")
 	}
 
-	return orders, total, nil
+	mapped, err := s.mapOrders(ctx, orders)
+	if err != nil {
+		return nil, 0, err
+	}
+	return mapped, total, nil
 }

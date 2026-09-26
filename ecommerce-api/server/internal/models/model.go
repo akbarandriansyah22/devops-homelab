@@ -27,8 +27,6 @@ type User struct {
 	EmailVerifiedAt sql.NullTime `json:"email_verified_at" db:"email_verified_at"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
-	
-	AuditModel
 }
 // struktur tabel pada Orders
 type Order struct {

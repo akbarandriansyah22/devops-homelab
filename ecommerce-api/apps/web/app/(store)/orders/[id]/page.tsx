@@ -7,9 +7,8 @@ function formatPrice(price: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(price);
 }
 
-function notesText(notes: { String: string; Valid: boolean } | null | undefined): string {
-  if (notes?.Valid && notes.String) return notes.String;
-  return "—";
+function notesText(notes: string | null | undefined): string {
+  return notes ? notes : "—";
 }
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -26,15 +25,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const canCancel = order.status === "pending" || order.status === "paid";
 
   return (
-    <article className="space-y-2 rounded border border-neutral-200 bg-white p-4">
-      <h1 className="text-xl font-semibold">{order.order_number || `Order ${order.id}`}</h1>
+    <article className="mx-auto my-10 max-w-3xl space-y-2 border border-neutral-200 p-6">
+      <h1 className="font-serif text-3xl font-normal">{order.order_number || `Order ${order.id}`}</h1>
       <p>Status: {order.status}</p>
       <p>Total: {formatPrice(order.total_amount)}</p>
       <p>Alamat: {order.shipping_address || "—"}</p>
       <p>Telepon: {order.shipping_phone || "—"}</p>
       <p>Pembayaran: {order.payment_method || "—"}</p>
       <p>Catatan: {notesText(order.notes)}</p>
-      <p className="text-sm text-neutral-600">Respons detail tidak menyertakan daftar item.</p>
       {canCancel ? <CancelOrder orderId={order.id} /> : null}
     </article>
   );

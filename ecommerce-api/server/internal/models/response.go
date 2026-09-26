@@ -34,9 +34,9 @@ type CartItemWithProduct struct {
 	ProductID int       `json:"product_id"`
 	Quantity  int       `json:"quantity"`
 	Price     float64   `json:"price"`
-	Product   Product   `json:"product"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Product   CatalogProduct `json:"product"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 // CartResponse includes cart items and total
@@ -56,8 +56,8 @@ type OrderItemWithProduct struct {
 	Quantity  int       `json:"quantity"`
 	Price     float64   `json:"price"`
 	Subtotal  float64   `json:"subtotal"`
-	Product   Product   `json:"product"`
-	CreatedAt time.Time `json:"created_at"`
+	Product   CatalogProduct `json:"product"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 // OrderWithItems includes order items
@@ -112,17 +112,34 @@ type RoleResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// CatalogProduct is a product payload with plain strings, not sql.Null*.
+type CatalogProduct struct {
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	Description string    `json:"description"`
+	Price       float64   `json:"price"`
+	Stock       int       `json:"stock"`
+	SKU         string    `json:"sku"`
+	ImageURL    string    `json:"image_url"`
+	IsActive    bool      `json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 // ProductResponse for product listing
 type ProductResponse struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	Slug      string    `json:"slug"`
-	Price     float64   `json:"price"`
-	Stock     int       `json:"stock"`
-	ImageURL  string    `json:"image_url,omitempty"`
-	IsActive  bool      `json:"is_active"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	Description string    `json:"description"`
+	Price       float64   `json:"price"`
+	Stock       int       `json:"stock"`
+	SKU         string    `json:"sku"`
+	ImageURL    string    `json:"image_url"`
+	IsActive    bool      `json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // ProductDetailResponse for detailed product info
@@ -130,11 +147,11 @@ type ProductDetailResponse struct {
 	ID          int                `json:"id"`
 	Name        string             `json:"name"`
 	Slug        string             `json:"slug"`
-	Description string             `json:"description,omitempty"`
+	Description string             `json:"description"`
 	Price       float64            `json:"price"`
 	Stock       int                `json:"stock"`
-	SKU         string             `json:"sku,omitempty"`
-	ImageURL    string             `json:"image_url,omitempty"`
+	SKU         string             `json:"sku"`
+	ImageURL    string             `json:"image_url"`
 	IsActive    bool               `json:"is_active"`
 	Categories  []CategoryResponse `json:"categories,omitempty"`
 	CreatedAt   time.Time          `json:"created_at"`
@@ -197,8 +214,8 @@ type OrderDetailResponse struct {
 	PaymentMethod   string                 `json:"payment_method"`
 	ShippingAddress string                 `json:"shipping_address"`
 	ShippingPhone   string                 `json:"shipping_phone"`
-	Notes           string                 `json:"notes,omitempty"`
-	Items           []OrderItemWithProduct `json:"items,omitempty"`
+	Notes           string                 `json:"notes"`
+	Items           []OrderItemWithProduct `json:"items"`
 	CreatedAt       time.Time              `json:"created_at"`
 	UpdatedAt       time.Time              `json:"updated_at"`
 }

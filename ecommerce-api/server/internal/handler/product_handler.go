@@ -8,6 +8,7 @@ import (
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/models"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/observability"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/ports"
+	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/utils"
 )
 
 type ProductHandler struct {
@@ -56,10 +57,11 @@ func (h *ProductHandler) GetProductByID(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(product)
+	return utils.SuccessResponse(c, "Product retrieved successfully", product)
 }
 
 // GET /api/products/slug/:slug
+// Body: { success, message, data: ProductDetailResponse }
 func (h *ProductHandler) GetProductBySlug(c *fiber.Ctx) error {
 	slug := c.Params("slug")
 
@@ -68,7 +70,7 @@ func (h *ProductHandler) GetProductBySlug(c *fiber.Ctx) error {
 		return h.handleError(c, err)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(product)
+	return utils.SuccessResponse(c, "Product retrieved successfully", product)
 }
 
 // GET /api/products/search

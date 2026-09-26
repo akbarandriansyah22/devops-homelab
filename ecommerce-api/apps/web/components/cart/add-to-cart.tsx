@@ -3,7 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function AddToCart({ productId }: { productId: number }) {
+export function AddToCart({
+  productId,
+  quantity = 1,
+  label = "Add to cart",
+  className = "rounded bg-neutral-950 px-6 py-3 text-sm text-white disabled:opacity-60",
+}: {
+  productId: number;
+  quantity?: number;
+  label?: string;
+  className?: string;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -15,7 +25,7 @@ export function AddToCart({ productId }: { productId: number }) {
       const res = await fetch("/api/proxy/cart/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, quantity: 1 }),
+        body: JSON.stringify({ product_id: productId, quantity }),
       });
       const body = (await res.json().catch(() => null)) as {
         error?: string;
@@ -42,9 +52,9 @@ export function AddToCart({ productId }: { productId: number }) {
         type="button"
         onClick={onClick}
         disabled={pending}
-        className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+        className={className}
       >
-        {pending ? "Menambah…" : "Tambah ke keranjang"}
+        {pending ? "Adding…" : label}
       </button>
     </div>
   );

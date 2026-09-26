@@ -17,16 +17,16 @@ export default async function Page() {
   }
   if (result.data.items.length === 0) {
     return (
-      <section className="space-y-2">
-        <h1 className="text-xl font-semibold">Order</h1>
+      <section className="mx-auto max-w-6xl space-y-2 px-4 py-10">
+        <h1 className="font-serif text-4xl font-normal">Orders</h1>
         <p className="text-sm text-neutral-600">Belum ada order.</p>
       </section>
     );
   }
 
   return (
-    <section className="space-y-3">
-      <h1 className="text-xl font-semibold">Order</h1>
+    <section className="mx-auto max-w-6xl space-y-3 px-4 py-10">
+      <h1 className="font-serif text-4xl font-normal">Orders</h1>
       <ul className="space-y-2">
         {result.data.items.map((order) => (
           <li key={order.id} className="rounded border border-neutral-200 bg-white p-4">

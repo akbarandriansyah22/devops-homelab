@@ -1,18 +1,33 @@
 # web
 
-Next.js App Router. Slice yang hidup: katalog, auth, keranjang, checkout, dan order customer. CRUD admin masih placeholder.
+Next.js App Router. Katalog, auth, keranjang, checkout, order customer, dan admin produk/kategori/order.
 
-Cart dan order dari browser lewat `app/api/proxy/[...path]` (cookie `access_token` → `Authorization: Bearer`). Tidak ada route `/api/cart` terpisah.
+Browser menulis cart, order, dan admin lewat `app/api/proxy/[...path]` (cookie `access_token` → `Authorization: Bearer`).
 
-## Alur uji order
+## Alur uji customer
 
-1. Login `web-auth-slice@example.com` (customer). Password yang dipakai saat register slice auth: `Testpass1`.
-2. Buka produk di katalog. Tanpa login, tombol keranjang mengarah ke `/login`.
-3. Tambah ke keranjang (`POST /api/cart/items` dengan `product_id` dan `quantity`).
-4. Buka `/cart`, lalu `/checkout`. Isi alamat, telepon, catatan, dan `payment_method` (`bank_transfer`, `credit_card`, `e_wallet`, atau `cod`). Submit membuat `POST /api/orders` dan pindah ke `/orders/[id]`.
-5. `/orders` menampilkan daftar. Tombol batal hanya untuk status `pending` atau `paid`.
+1. `npm run dev` di `apps/web` (port **3001**). API Go di `:8080`.
+2. Login `web-auth-slice@example.com` / `Testpass1`, atau register. Role register = customer (`role_id = 2`).
+3. Beranda atau `/search?q=` → buka `/products/[slug]` → Tambah ke keranjang.
+4. `/cart` → `/checkout` (alamat, telepon, catatan, `payment_method`) → `/orders/[id]`.
+5. `/orders` daftar order. Batal hanya untuk status `pending` atau `paid`.
+6. Customer yang membuka `/admin` melihat teks Forbidden.
 
-Katalog saat ini kosong (`GET /api/products` `total: 0`), jadi langkah 2 butuh satu produk aktif di database. `GET /api/cart` sebelum cart pernah dibuat membalas 500 `Failed to get cart`. Service `GetCart` juga mengembalikan `items: []` dan `total_quantity: 0` meskipun baris `cart_items` ada, jadi halaman keranjang mengikuti JSON itu. `shipping_phone` dikirim form, tetapi handler `POST /api/orders` tidak membaca field itu. Detail order tidak berisi array item. Hapus item memakai path nyata `DELETE /api/cart/items/:id`.
+`shipping_phone` dikirim form, tetapi handler `POST /api/orders` tidak menyimpannya. Detail order tidak berisi array item. Hapus item cart memakai `DELETE /api/cart/items/:id`.
+
+## Alur uji admin
+
+```sql
+UPDATE users SET role_id = 1 WHERE email = 'alamat@example.com';
+```
+
+Login lagi. Header menampilkan Admin.
+
+- `/admin/products`: buat produk, aktifkan, nonaktifkan, hapus.
+- `/admin/categories`: buat dan hapus.
+- `/admin/orders`: ubah status ke `pending`, `paid`, `shipped`, `delivered`, atau `cancelled`.
+
+Daftar produk publik memakai `GET /api/products`. Mapper backend mengisi `is_active` hanya jika field itu di-set, jadi daftar bisa menampilkan nonaktif meskipun produk aktif. Aktif/nonaktif tetap memanggil endpoint admin.
 
 ## Akun uji
 
@@ -35,7 +50,7 @@ Lalu login lagi. `/admin` menolak session customer dengan teks Forbidden. Tanpa 
 cd apps/web && npm i && npm run dev
 ```
 
-`API_URL` dibaca server component dari `.env.local` (contoh: `API_URL=http://localhost:8080`). Frontend memanggil API itu langsung, tanpa rewrite Next.
+Dev server: `http://localhost:3001` (Grafana memakai 3000). `API_URL` dibaca server component dari `.env.local` (contoh: `API_URL=http://localhost:8080`). Katalog publik memanggil API itu langsung. Mutasi lewat BFF proxy.
 
 Role backend: `1` admin, `2` customer. Auth: JWT Bearer.
 
@@ -89,7 +104,7 @@ apps/web/
 | `/login` | `POST /api/auth/login` |
 | `/register` | `POST /api/auth/register` |
 | `/products/[slug]` | `GET /api/products/slug/:slug` |
-| `/search` | `GET /api/products/search?q=` |
+| `/search` | `GET /api/products/search?q=`, atau `GET /api/products/category/:id` jika `?category=` |
 | `/cart` | `GET/POST/DELETE /api/cart`, `POST/DELETE /api/cart/items` |
 | `/checkout` | `POST /api/orders` |
 | `/orders` | `GET /api/orders` |
@@ -98,8 +113,8 @@ apps/web/
 | `/admin` | `GET /api/admin/orders` |
 | `/admin/products` | CRUD `/api/admin/products` |
 | `/admin/categories` | CRUD `/api/admin/categories` |
-| `/admin/orders` | `GET/PUT /api/admin/orders` |
+| `/admin/orders` | `GET /api/admin/orders`, `PUT /api/admin/orders/:id/status` |
 
-Route BFF (`app/api/auth/*`, `app/api/proxy/[...path]`) masih kosong. Env: `API_URL=http://localhost:8080`.
+`GET /api/admin/orders` memakai bungkus `{ success, message, data, meta }`, bukan `{ page, limit, total }` di root. UI membaca `data` dan `meta.total_items`.
 
-Endpoint katalog lain yang belum punya halaman khusus: `GET /api/products/:id`, `GET /api/products/category/:id`, `GET /api/categories/:id`, `GET /api/categories/:id/products`, `GET /api/categories/:id/subcategories`.
+Endpoint katalog yang belum punya halaman khusus: `GET /api/products/:id`, `GET /api/categories/:id`, `GET /api/categories/:id/products`, `GET /api/categories/:id/subcategories`.

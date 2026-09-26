@@ -51,11 +51,23 @@ func (s *CategoryService) CreateCategory(ctx context.Context, req *models.Create
 
 	s.logger.Info("Category created: ID=%d, Name=%s", category.ID, category.Name)
 
+	return mapCategory(category), nil
+}
+
+func mapCategory(category *models.Category) *models.CategoryResponse {
+	if category == nil {
+		return nil
+	}
 	return &models.CategoryResponse{
-		ID:   category.ID,
-		Name: category.Name,
-		Slug: category.Slug,
-	}, nil
+		ID:          category.ID,
+		Name:        category.Name,
+		Slug:        category.Slug,
+		Description: models.NullString(category.Description),
+		ParentID:    models.NullInt32(category.ParentID),
+		IsActive:    category.IsActive,
+		CreatedAt:   category.CreatedAt,
+		UpdatedAt:   category.UpdatedAt,
+	}
 }
 
 // GetCategoryByID gets a category by ID
@@ -68,10 +80,16 @@ func (s *CategoryService) GetCategoryByID(ctx context.Context, id int) (*models.
 		return nil, fmt.Errorf("category not found")
 	}
 
+	base := mapCategory(category)
 	return &models.CategoryDetailResponse{
-		ID:   category.ID,
-		Name: category.Name,
-		Slug: category.Slug,
+		ID:          base.ID,
+		Name:        base.Name,
+		Slug:        base.Slug,
+		Description: base.Description,
+		ParentID:    base.ParentID,
+		IsActive:    base.IsActive,
+		CreatedAt:   base.CreatedAt,
+		UpdatedAt:   base.UpdatedAt,
 	}, nil
 }
 
@@ -85,10 +103,16 @@ func (s *CategoryService) GetCategoryBySlug(ctx context.Context, slug string) (*
 		return nil, fmt.Errorf("category not found")
 	}
 
+	base := mapCategory(category)
 	return &models.CategoryDetailResponse{
-		ID:   category.ID,
-		Name: category.Name,
-		Slug: category.Slug,
+		ID:          base.ID,
+		Name:        base.Name,
+		Slug:        base.Slug,
+		Description: base.Description,
+		ParentID:    base.ParentID,
+		IsActive:    base.IsActive,
+		CreatedAt:   base.CreatedAt,
+		UpdatedAt:   base.UpdatedAt,
 	}, nil
 }
 
@@ -141,11 +165,7 @@ func (s *CategoryService) ListCategories(ctx context.Context) ([]*models.Categor
 
 	response := make([]*models.CategoryResponse, 0, len(categories))
 	for _, category := range categories {
-		response = append(response, &models.CategoryResponse{
-			ID:   category.ID,
-			Name: category.Name,
-			Slug: category.Slug,
-		})
+		response = append(response, mapCategory(category))
 	}
 
 	return response, nil
@@ -196,11 +216,7 @@ func (s *CategoryService) GetRootCategories(ctx context.Context) ([]*models.Cate
 
 	response := make([]*models.CategoryResponse, 0, len(categories))
 	for _, category := range categories {
-		response = append(response, &models.CategoryResponse{
-			ID:   category.ID,
-			Name: category.Name,
-			Slug: category.Slug,
-		})
+		response = append(response, mapCategory(category))
 	}
 
 	return response, nil
@@ -216,11 +232,7 @@ func (s *CategoryService) GetChildCategories(ctx context.Context, parentID int) 
 
 	response := make([]*models.CategoryResponse, 0, len(categories))
 	for _, category := range categories {
-		response = append(response, &models.CategoryResponse{
-			ID:   category.ID,
-			Name: category.Name,
-			Slug: category.Slug,
-		})
+		response = append(response, mapCategory(category))
 	}
 
 	return response, nil

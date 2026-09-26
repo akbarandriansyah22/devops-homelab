@@ -103,8 +103,8 @@ export type Cart = {
   total_quantity: number;
 };
 
-// GET /api/orders dan GET /api/orders/:id mengembalikan models.Order, tanpa array items.
-// notes adalah database/sql.NullString.
+// GET /api/orders dan GET /api/orders/:id memakai OrderDetailResponse.
+// notes adalah string (bukan sql.NullString).
 export type OrderItem = {
   id: number;
   order_id: number;
@@ -124,7 +124,7 @@ export type Order = {
   payment_method: string;
   shipping_address: string;
   shipping_phone: string;
-  notes: SqlNullString;
+  notes: string;
   created_at: string;
   updated_at: string;
 };

@@ -23,6 +23,9 @@ type OrderRepository interface {
 	// GetOrderItems mengambil semua item dalam order
 	GetOrderItems(ctx context.Context, orderID int) ([]*models.OrderItem, error)
 
+	// ListItemsWithProducts mengambil item order beserta produk (JOIN).
+	ListItemsWithProducts(ctx context.Context, orderID int) ([]*models.OrderItemWithProduct, error)
+
 	// Update memperbarui data order
 	Update(ctx context.Context, order *models.Order) error
 

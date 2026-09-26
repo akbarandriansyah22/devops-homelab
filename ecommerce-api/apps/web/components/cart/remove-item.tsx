@@ -29,7 +29,7 @@ export function RemoveItem({ itemId }: { itemId: number }) {
   return (
     <div>
       <button type="button" onClick={onClick} disabled={pending} className="text-sm underline disabled:opacity-60">
-        {pending ? "Menghapus…" : "Hapus"}
+        {pending ? "Removing…" : "Remove"}
       </button>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </div>

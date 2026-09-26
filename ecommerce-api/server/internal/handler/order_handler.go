@@ -154,6 +154,7 @@ func (h *OrderHandler) CreateFromCart(c *fiber.Ctx) error {
 	var req struct {
 		ShippingAddress string `json:"shipping_address"`
 		PaymentMethod   string `json:"payment_method"`
+		ShippingPhone   string `json:"shipping_phone"`
 		Notes           string `json:"notes"`
 	}
 
@@ -169,6 +170,13 @@ func (h *OrderHandler) CreateFromCart(c *fiber.Ctx) error {
 		validationErrors = append(validationErrors, utils.ValidationError{
 			Field:   "shipping_address",
 			Message: "Shipping address is required",
+		})
+	}
+
+	if req.ShippingPhone == "" {
+		validationErrors = append(validationErrors, utils.ValidationError{
+			Field:   "shipping_phone",
+			Message: "Shipping phone is required",
 		})
 	}
 
@@ -199,7 +207,7 @@ func (h *OrderHandler) CreateFromCart(c *fiber.Ctx) error {
 	}
 
 	// Create order from cart
-	order, err := h.orderService.CreateFromCart(userID, req.ShippingAddress, req.PaymentMethod, req.Notes)
+	order, err := h.orderService.CreateFromCart(userID, req.ShippingAddress, req.ShippingPhone, req.PaymentMethod, req.Notes)
 	if err != nil {
 		errMsg := err.Error()
 		// Handle specific errors

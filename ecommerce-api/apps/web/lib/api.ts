@@ -25,6 +25,12 @@ function errorMessage(body: unknown, fallback: string): string {
   return fallback;
 }
 
+function parseProductPage(body: unknown): { items: Product[]; total: number } {
+  const page = body as ProductListResponse;
+  const items = Array.isArray(page?.data) ? page.data : [];
+  return { items, total: typeof page?.total === "number" ? page.total : items.length };
+}
+
 export async function getProducts(): Promise<
   CatalogResult<{ items: Product[]; total: number }>
 > {
@@ -36,9 +42,37 @@ export async function getProducts(): Promise<
     if (!res.ok) {
       return { data: null, error: errorMessage(body, `Produk gagal dimuat (${res.status})`) };
     }
-    const page = body as ProductListResponse;
-    const items = Array.isArray(page?.data) ? page.data : [];
-    return { data: { items, total: typeof page?.total === "number" ? page.total : items.length }, error: null };
+    return { data: parseProductPage(body), error: null };
+  } catch {
+    return { data: null, error: "API produk tidak terjangkau. Pastikan server berjalan di API_URL." };
+  }
+}
+
+export async function searchProducts(q: string): Promise<CatalogResult<{ items: Product[]; total: number }>> {
+  try {
+    const res = await fetch(`${apiBase()}/api/products/search?q=${encodeURIComponent(q)}&page=1&limit=100`, {
+      cache: "no-store",
+    });
+    const body = await readJson(res);
+    if (!res.ok) {
+      return { data: null, error: errorMessage(body, `Pencarian gagal (${res.status})`) };
+    }
+    return { data: parseProductPage(body), error: null };
+  } catch {
+    return { data: null, error: "API produk tidak terjangkau. Pastikan server berjalan di API_URL." };
+  }
+}
+
+export async function getProductsByCategory(id: string): Promise<CatalogResult<{ items: Product[]; total: number }>> {
+  try {
+    const res = await fetch(`${apiBase()}/api/products/category/${encodeURIComponent(id)}?page=1&limit=100`, {
+      cache: "no-store",
+    });
+    const body = await readJson(res);
+    if (!res.ok) {
+      return { data: null, error: errorMessage(body, `Produk kategori gagal dimuat (${res.status})`) };
+    }
+    return { data: parseProductPage(body), error: null };
   } catch {
     return { data: null, error: "API produk tidak terjangkau. Pastikan server berjalan di API_URL." };
   }
@@ -53,7 +87,8 @@ export async function getProductBySlug(slug: string): Promise<CatalogResult<Prod
     if (!res.ok) {
       return { data: null, error: errorMessage(body, `Produk tidak ditemukan (${res.status})`) };
     }
-    const product = body as Product;
+    const record = body as { data?: Product; id?: number };
+    const product = record?.data && typeof record.data.id === "number" ? record.data : (body as Product);
     if (!product || typeof product.id !== "number") {
       return { data: null, error: errorMessage(body, "Respons produk tidak valid") };
     }

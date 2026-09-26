@@ -205,12 +205,17 @@ func (s *ProductService) GetProductsByCategory(
 // =======================
 func mapToDetailResponse(p *models.Product) *models.ProductDetailResponse {
 	return &models.ProductDetailResponse{
-		ID:       p.ID,
-		Name:     p.Name,
-		Slug:     p.Slug,
-		Price:    p.Price,
-		Stock:    p.Stock,
-		IsActive: p.IsActive,
+		ID:          p.ID,
+		Name:        p.Name,
+		Slug:        p.Slug,
+		Description: models.NullString(p.Description),
+		Price:       p.Price,
+		Stock:       p.Stock,
+		SKU:         models.NullString(p.SKU),
+		ImageURL:    models.NullString(p.ImageURL),
+		IsActive:    p.IsActive,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
 	}
 }
 
@@ -223,18 +228,25 @@ func buildPaginatedResponse(
 	items := make([]interface{}, 0, len(products))
 	for _, p := range products {
 		items = append(items, &models.ProductResponse{
-			ID:    p.ID,
-			Name:  p.Name,
-			Slug:  p.Slug,
-			Price: p.Price,
-			Stock: p.Stock,
+			ID:          p.ID,
+			Name:        p.Name,
+			Slug:        p.Slug,
+			Description: models.NullString(p.Description),
+			Price:       p.Price,
+			Stock:       p.Stock,
+			SKU:         models.NullString(p.SKU),
+			ImageURL:    models.NullString(p.ImageURL),
+			IsActive:    p.IsActive,
+			CreatedAt:   p.CreatedAt,
+			UpdatedAt:   p.UpdatedAt,
 		})
 	}
 
 	return &models.PaginatedResponse{
-		Data:  items,
-		Total: int64(total),
-		Page:  page,
-		Limit: limit,
+		Success: true,
+		Data:    items,
+		Total:   int64(total),
+		Page:    page,
+		Limit:   limit,
 	}
 }

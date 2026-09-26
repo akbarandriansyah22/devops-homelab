@@ -324,6 +324,19 @@ func (r *OrderRepositoryPort) GetByOrderNumber(ctx context.Context, orderNumber 
 	_ = ctx
 	return r.inner.GetByOrderNumber(orderNumber)
 }
+func (r *OrderRepositoryPort) ListItemsWithProducts(ctx context.Context, orderID int) ([]*models.OrderItemWithProduct, error) {
+	_ = ctx
+	items, err := r.inner.ListItemsWithProducts(orderID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*models.OrderItemWithProduct, len(items))
+	for i := range items {
+		item := items[i]
+		out[i] = &item
+	}
+	return out, nil
+}
 func (r *OrderRepositoryPort) GetOrderItems(ctx context.Context, orderID int) ([]*models.OrderItem, error) {
 	_ = ctx
 	items, err := r.inner.GetOrderItems(orderID)

@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { RemoveItem } from "@/components/cart/remove-item";
+import { ProductImage } from "@/components/ui/product-image";
 import { getSession } from "@/lib/auth";
+import { formatPrice } from "@/lib/money";
 import { getCart } from "@/lib/shop";
+import type { SqlNullString } from "@/lib/types";
 
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(price);
+function imageSrc(value: SqlNullString | string | undefined): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  return value.Valid ? value.String : undefined;
 }
 
 export default async function Page() {
@@ -13,44 +18,58 @@ export default async function Page() {
   if (!session) redirect("/login");
 
   const result = await getCart();
-  if (result.error !== null) {
-    return <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{result.error}</p>;
-  }
-
-  const items = result.data.items ?? [];
-  if (items.length === 0) {
-    return (
-      <section className="space-y-2">
-        <h1 className="text-xl font-semibold">Keranjang</h1>
-        <p className="text-sm text-neutral-600">Keranjang kosong.</p>
-        <Link href="/" className="text-sm underline">
-          Lihat produk
-        </Link>
-      </section>
-    );
-  }
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-xl font-semibold">Keranjang</h1>
-      <ul className="space-y-3">
-        {items.map((item) => (
-          <li key={item.id} className="flex items-start justify-between gap-4 rounded border border-neutral-200 bg-white p-4">
-            <div>
-              <Link href={`/products/${item.product.slug}`} className="font-medium underline">
-                {item.product.name}
-              </Link>
-              <p className="text-sm">Qty: {item.quantity}</p>
-              <p className="text-sm">{formatPrice(item.price)}</p>
-            </div>
-            <RemoveItem itemId={item.id} />
-          </li>
-        ))}
-      </ul>
-      <p>Total: {formatPrice(result.data.total_price)}</p>
-      <Link href="/checkout" className="inline-block rounded bg-neutral-900 px-3 py-1.5 text-sm text-white">
-        Checkout
-      </Link>
-    </section>
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <p className="text-sm text-neutral-500">Shopping Cart</p>
+      <ol className="mt-4 flex gap-6 text-sm">
+        <li className="border-b border-neutral-950 pb-1">Cart</li>
+        <li>
+          <Link href="/checkout">Checkout</Link>
+        </li>
+        <li className="text-neutral-400">Complete</li>
+      </ol>
+      <h1 className="mt-6 font-serif text-4xl">Cart</h1>
+      {result.error !== null ? (
+        <p className="mt-6 text-sm text-red-700">{result.error}</p>
+      ) : (result.data.items ?? []).length === 0 ? (
+        <p className="mt-6 text-sm text-neutral-600">
+          Your cart is empty. <Link href="/search" className="underline">Shop</Link>
+        </p>
+      ) : (
+        <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
+          <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
+            {(result.data.items ?? []).map((item) => (
+              <li key={item.id} className="grid grid-cols-[88px_1fr_auto] gap-4 py-4">
+                <div className="h-24 w-full bg-neutral-100">
+                  <ProductImage src={imageSrc(item.product.image_url)} name={item.product.name} />
+                </div>
+                <div>
+                  <Link href={`/products/${item.product.slug}`} className="font-medium">
+                    {item.product.name}
+                  </Link>
+                  <p className="text-sm text-neutral-500">Qty {item.quantity}</p>
+                  <p className="text-sm">{formatPrice(item.price)}</p>
+                </div>
+                <div className="text-right">
+                  <p>{formatPrice(item.price * item.quantity)}</p>
+                  <RemoveItem itemId={item.id} />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <aside className="h-fit border border-neutral-200 p-5">
+            <h2 className="font-serif text-2xl">Summary</h2>
+            <p className="mt-4 flex justify-between text-sm">
+              <span>Subtotal</span>
+              <span>{formatPrice(result.data.total_price)}</span>
+            </p>
+            <Link href="/checkout" className="mt-6 block bg-neutral-950 py-3 text-center text-sm text-white">
+              Checkout
+            </Link>
+          </aside>
+        </div>
+      )}
+    </div>
   );
 }

@@ -689,6 +689,49 @@ func (r *OrderRepository) AddOrderItem(orderItem *models.OrderItem) error {
 	return err
 }
 
+// ListItemsWithProducts loads order lines joined to products.
+func (r *OrderRepository) ListItemsWithProducts(orderID int) ([]models.OrderItemWithProduct, error) {
+	query := `
+		SELECT oi.id, oi.order_id, oi.product_id, oi.quantity, oi.price, oi.subtotal, oi.created_at,
+		       p.id, p.name, p.slug, p.description, p.price, p.stock, p.sku, p.image_url, p.is_active,
+		       p.created_at, p.updated_at
+		FROM order_items oi
+		JOIN products p ON p.id = oi.product_id
+		WHERE oi.order_id = $1
+		ORDER BY oi.id
+	`
+	rows, err := r.db.Query(query, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
+
+	items := []models.OrderItemWithProduct{}
+	for rows.Next() {
+		var item models.OrderItemWithProduct
+		var description, sku, imageURL sql.NullString
+		if err := rows.Scan(
+			&item.ID, &item.OrderID, &item.ProductID, &item.Quantity, &item.Price, &item.Subtotal, &item.CreatedAt,
+			&item.Product.ID, &item.Product.Name, &item.Product.Slug, &description, &item.Product.Price,
+			&item.Product.Stock, &sku, &imageURL, &item.Product.IsActive, &item.Product.CreatedAt, &item.Product.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		item.Product.Description = models.NullString(description)
+		item.Product.SKU = models.NullString(sku)
+		item.Product.ImageURL = models.NullString(imageURL)
+		if item.Subtotal == 0 {
+			item.Subtotal = item.Price * float64(item.Quantity)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 // GetOrderItems retrieves all items for a specific order
 func (r *OrderRepository) GetOrderItems(orderID int) ([]models.OrderItem, error) {
 	query := `

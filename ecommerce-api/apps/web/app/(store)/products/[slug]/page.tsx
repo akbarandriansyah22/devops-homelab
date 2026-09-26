@@ -1,47 +1,70 @@
 import Link from "next/link";
-import { AddToCart } from "@/components/cart/add-to-cart";
-import { getProductBySlug } from "@/lib/api";
+import { ProductCard } from "@/components/products/product-card";
+import { DetailTabs } from "@/components/products/detail-tabs";
+import { PurchasePanel } from "@/components/products/purchase-panel";
+import { ProductImage } from "@/components/ui/product-image";
+import { Stars } from "@/components/ui/stars";
+import { getProductBySlug, getProducts } from "@/lib/api";
 import { getSession } from "@/lib/auth";
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(price);
-}
+import { formatPrice } from "@/lib/money";
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [result, session] = await Promise.all([getProductBySlug(slug), getSession()]);
+  const [result, session, catalog] = await Promise.all([getProductBySlug(slug), getSession(), getProducts()]);
 
   if (result.error !== null) {
-    return (
-      <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-        {result.error ?? "Produk tidak ditemukan."}
-      </p>
-    );
+    return <p className="mx-auto max-w-6xl px-4 py-10 text-sm text-red-700">{result.error}</p>;
   }
 
   const product = result.data;
+  const more = catalog.error === null ? catalog.data.items.filter((item) => item.id !== product.id).slice(0, 4) : [];
 
   return (
-    <article className="space-y-3 rounded border border-neutral-200 bg-white p-4">
-      {product.image_url ? (
-        <img src={product.image_url} alt={product.name} className="max-h-64 w-full object-contain" />
-      ) : null}
-      <h1 className="text-2xl font-semibold">{product.name}</h1>
-      <p className="text-neutral-700">{product.description || "Tidak ada deskripsi."}</p>
-      <p>{formatPrice(product.price)}</p>
-      <p className="text-sm text-neutral-600">Stok: {product.stock}</p>
-      <p className="text-sm text-neutral-600">SKU: {product.sku || "—"}</p>
-      {session ? (
-        <AddToCart productId={product.id} />
-      ) : (
-        <Link href="/login" className="inline-block rounded bg-neutral-900 px-3 py-1.5 text-sm text-white">
-          Tambah ke keranjang
-        </Link>
-      )}
-    </article>
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <p className="mb-6 text-sm text-neutral-500">
+        <Link href="/">Home</Link> <span className="px-1">›</span> <Link href="/search">Shop</Link>
+      </p>
+      <div className="grid gap-10 md:grid-cols-2">
+        <div>
+          <div className="aspect-square bg-neutral-100">
+            <ProductImage src={product.image_url} name={product.name} />
+          </div>
+          <div className="mt-3 grid grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((index) => (
+              <div key={index} className="aspect-square bg-neutral-100">
+                <ProductImage src={product.image_url} name={product.name} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Stars />
+          <h1 className="mt-2 font-serif text-4xl font-normal">{product.name}</h1>
+          <p className="mt-3 text-xl">{formatPrice(product.price)}</p>
+          <p className="mt-4 text-sm leading-6 text-neutral-600">{product.description || "No description yet."}</p>
+          <p className="mt-2 text-sm text-neutral-500">
+            Stock {product.stock} · SKU {product.sku || "—"}
+          </p>
+          <div className="mt-6">
+            <PurchasePanel productId={product.id} loggedIn={Boolean(session)} />
+          </div>
+        </div>
+      </div>
+      <DetailTabs />
+      <section className="mt-12">
+        <h2 className="mb-6 font-serif text-3xl">More Products</h2>
+        {more.length === 0 ? (
+          <p className="text-sm text-neutral-500">No other products yet.</p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {more.map((item) => (
+              <li key={item.id}>
+                <ProductCard product={item} loggedIn={Boolean(session)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }

@@ -12,8 +12,8 @@ export default async function Page() {
   if (!session) redirect("/login");
 
   return (
-    <section className="space-y-2 rounded border border-neutral-200 bg-white p-4">
-      <h1 className="text-xl font-semibold">Akun</h1>
+    <section className="mx-auto my-10 max-w-lg space-y-2 border border-neutral-200 p-6">
+      <h1 className="font-serif text-3xl font-normal">Account</h1>
       <p>Email: {session.email}</p>
       <p>Nama: {session.full_name}</p>
       <p>Role: {roleLabel(session.role_id)}</p>
