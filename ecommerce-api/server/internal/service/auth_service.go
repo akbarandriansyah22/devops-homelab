@@ -8,14 +8,27 @@ import (
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/observability"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/ports"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/security"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AuthService handles authentication business logic
 type AuthService struct {
-	userRepo  ports.UserRepository
-	roleRepo  ports.RoleRepository
-	jwtSecret string
-	logger    observability.Logger
+	userRepo           ports.UserRepository
+	roleRepo           ports.RoleRepository
+	jwtSecret          string
+	jwtExpirationHours int
+	logger             observability.Logger
+}
+
+// dummyPasswordHash keeps login timing similar when the email does not exist.
+var dummyPasswordHash string
+
+func init() {
+	hashed, err := bcrypt.GenerateFromPassword([]byte("not-a-real-user-password"), bcrypt.DefaultCost)
+	if err != nil {
+		panic(err)
+	}
+	dummyPasswordHash = string(hashed)
 }
 
 // NewAuthService creates a new auth service
@@ -23,13 +36,18 @@ func NewAuthService(
 	userRepo ports.UserRepository,
 	roleRepo ports.RoleRepository,
 	jwtSecret string,
+	jwtExpirationHours int,
 	logger observability.Logger,
 ) *AuthService {
+	if jwtExpirationHours < 1 {
+		jwtExpirationHours = 2
+	}
 	return &AuthService{
-		userRepo:  userRepo,
-		roleRepo:  roleRepo,
-		jwtSecret: jwtSecret,
-		logger:    logger,
+		userRepo:           userRepo,
+		roleRepo:           roleRepo,
+		jwtSecret:          jwtSecret,
+		jwtExpirationHours: jwtExpirationHours,
+		logger:             logger,
 	}
 }
 
@@ -53,7 +71,7 @@ func (s *AuthService) Register(ctx context.Context, req *models.RegisterRequest)
 	// Check if email already exists
 	existingUser, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err == nil && existingUser != nil {
-		return nil, fmt.Errorf("email already registered")
+		return nil, fmt.Errorf("registration could not be completed")
 	}
 
 	// Hash password
@@ -83,7 +101,7 @@ func (s *AuthService) Register(ctx context.Context, req *models.RegisterRequest)
 	s.logger.Info("User registered successfully: UserID=%d, Email=%s", user.ID, user.Email)
 
 	// Generate JWT token
-	token, err := security.GenerateToken(user.ID, user.Email, user.RoleID, user.Name, s.jwtSecret, 24)
+	token, err := security.GenerateToken(user.ID, user.Email, user.RoleID, user.Name, s.jwtSecret, s.jwtExpirationHours, user.TokenVersion)
 	if err != nil {
 		s.logger.Error("AuthService.Register: Failed to generate token", err)
 		return nil, fmt.Errorf("failed to generate token")
@@ -92,7 +110,7 @@ func (s *AuthService) Register(ctx context.Context, req *models.RegisterRequest)
 	// Return login response
 	return &models.LoginResponse{
 		Token: token,
-		User: userResponse(user),
+		User:  userResponse(user),
 	}, nil
 }
 
@@ -119,6 +137,7 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest) (*mod
 	// Get user by email
 	user, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil || user == nil {
+		security.VerifyPassword(req.Password, dummyPasswordHash)
 		s.logger.Warn("AuthService.Login: Failed login attempt for email=%s", req.Email)
 		return nil, fmt.Errorf("invalid email or password")
 	}
@@ -136,7 +155,7 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest) (*mod
 	}
 
 	// Generate JWT token
-	token, err := security.GenerateToken(user.ID, user.Email, user.RoleID, user.Name, s.jwtSecret, 24)
+	token, err := security.GenerateToken(user.ID, user.Email, user.RoleID, user.Name, s.jwtSecret, s.jwtExpirationHours, user.TokenVersion)
 	if err != nil {
 		s.logger.Error("AuthService.Login: Failed to generate token", err)
 		return nil, fmt.Errorf("failed to generate token")
@@ -147,7 +166,7 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest) (*mod
 	// Return login response
 	return &models.LoginResponse{
 		Token: token,
-		User: userResponse(user),
+		User:  userResponse(user),
 	}, nil
 }
 

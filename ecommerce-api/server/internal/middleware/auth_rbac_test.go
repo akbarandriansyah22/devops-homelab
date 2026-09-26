@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -8,9 +9,20 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/models"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/observability"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/security"
 )
+
+type stubUsers struct {
+	user *models.User
+}
+
+func (s stubUsers) GetByID(ctx context.Context, id int) (*models.User, error) {
+	_ = ctx
+	_ = id
+	return s.user, nil
+}
 
 func doRequest(t *testing.T, app *fiber.App, req *http.Request) *http.Response {
 	t.Helper()
@@ -62,7 +74,7 @@ func TestRequireRole_AdminAllowed(t *testing.T) {
 func TestAuth_RejectsMissingToken(t *testing.T) {
 	logger := observability.NewLogger()
 	app := fiber.New()
-	app.Get("/me", Auth("test-secret-must-be-at-least-32-chars", logger), func(c *fiber.Ctx) error {
+	app.Get("/me", Auth("test-secret-must-be-at-least-32-chars", logger, stubUsers{}), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -75,13 +87,16 @@ func TestAuth_RejectsMissingToken(t *testing.T) {
 func TestAuth_AcceptsValidToken(t *testing.T) {
 	secret := "test-secret-must-be-at-least-32-chars"
 	logger := observability.NewLogger()
-	token, err := security.GenerateToken(2, "cust@example.com", 2, "Cust", secret, 1)
+	token, err := security.GenerateToken(2, "cust@example.com", 1, "Cust", secret, 1, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	app := fiber.New()
-	app.Get("/me", Auth(secret, logger), func(c *fiber.Ctx) error {
+	app.Get("/me", Auth(secret, logger, stubUsers{user: &models.User{ID: 2, Email: "cust@example.com", RoleID: 2, IsActive: true}}), func(c *fiber.Ctx) error {
+		if c.Locals("roleID") != 2 {
+			return c.SendStatus(fiber.StatusForbidden)
+		}
 		return c.SendStatus(fiber.StatusOK)
 	})
 

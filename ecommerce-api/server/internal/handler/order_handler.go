@@ -274,6 +274,10 @@ func (h *OrderHandler) UpdateStatus(c *fiber.Ctx) error {
 	return utils.SuccessResponse(c, "Order status updated successfully", order)
 }
 
+func customerMayCancel(status string) bool {
+	return status == "pending"
+}
+
 // CancelOrder cancels an order
 // POST /api/orders/:id/cancel
 // Protected: Requires authentication
@@ -306,7 +310,7 @@ func (h *OrderHandler) CancelOrder(c *fiber.Ctx) error {
 	}
 
 	// Check if order can be cancelled
-	if order.Status != "pending" && order.Status != "paid" {
+	if !customerMayCancel(order.Status) {
 		return utils.BadRequestResponse(c, "Order cannot be cancelled. Current status: "+order.Status)
 	}
 

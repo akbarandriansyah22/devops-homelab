@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
@@ -8,11 +10,15 @@ import (
 // CORS  (Cross-Origin Resource Sharing)
 // Middleware untuk handle CORS dengan konfigurasi default
 // Allow all origins (untuk development)
-func CORS() fiber.Handler {
+func CORS(allowedOrigins []string) fiber.Handler {
+	origins := strings.Join(allowedOrigins, ",")
+	if origins == "" {
+		origins = "*"
+	}
 	return cors.New(cors.Config{
 		// Allow all origins (wildcard)
 		//  DEVELOPMENT ONLY! Ganti di production!
-		AllowOrigins: "*",
+		AllowOrigins: origins,
 
 		// Allow common HTTP methods
 		AllowMethods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
@@ -24,7 +30,7 @@ func CORS() fiber.Handler {
 		ExposeHeaders: "Content-Length,Content-Type",
 
 		// Allow credentials (cookies, authorization headers)
-		AllowCredentials: false, // Set false jika AllowOrigins = "*"
+		AllowCredentials: origins != "*", // Set false jika AllowOrigins = "*"
 
 		// Max age for preflight request cache (in seconds)
 		MaxAge: 3600, // 1 hour

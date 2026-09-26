@@ -165,7 +165,8 @@ func (h *AuthHandler) handleAuthError(c *fiber.Ctx, err error) error {
 		"email and password are required",
 		"old password and new password are required",
 		"old password is incorrect",
-		"full name is required":
+		"full name is required",
+		"registration could not be completed":
 		return utils.BadRequestResponse(c, errMsg)
 
 	// Unauthorized (401)

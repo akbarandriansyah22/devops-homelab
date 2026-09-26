@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -26,7 +28,7 @@ func DefaultAuthRateLimitConfig(logger observability.Logger) RateLimitConfig {
 		Capacity:        10,
 		Window:          time.Minute,
 		CleanupInterval: 5 * time.Minute,
-		KeyFunc:         IPKeyFunc,
+		KeyFunc:         AuthIdentityKeyFunc,
 		Logger:          logger,
 	}
 }
@@ -47,6 +49,19 @@ func DefaultAPIRateLimitConfig(logger observability.Logger) RateLimitConfig {
 // Cocok untuk endpoint publik sebelum user login.
 func IPKeyFunc(c *fiber.Ctx) string {
 	return "ip:" + c.IP()
+}
+
+// AuthIdentityKeyFunc limits login and register per IP and email.
+func AuthIdentityKeyFunc(c *fiber.Ctx) string {
+	var body struct {
+		Email string `json:"email"`
+	}
+	_ = json.Unmarshal(c.Body(), &body)
+	email := strings.ToLower(strings.TrimSpace(body.Email))
+	if email == "" {
+		email = "-"
+	}
+	return "ip:" + c.IP() + ":email:" + email
 }
 
 // UserIDKeyFunc — gunakan userID dari JWT sebagai key.

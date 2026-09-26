@@ -11,6 +11,9 @@ type OrderRepository interface {
 	// Create membuat order baru
 	Create(ctx context.Context, order *models.Order) error
 
+	// Checkout membuat order, item, dan pengurangan stok dalam satu transaksi.
+	Checkout(ctx context.Context, order *models.Order, lines []*models.OrderItem) error
+
 	// CreateOrderItems membuat order items
 	CreateOrderItems(ctx context.Context, orderID int, items []*models.OrderItem) error
 

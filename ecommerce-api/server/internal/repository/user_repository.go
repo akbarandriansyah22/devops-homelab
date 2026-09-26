@@ -12,15 +12,15 @@ import (
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db     *sql.DB
 	logger *zap.Logger
 }
 
 // NewUserRepository creates a new user repository
 func NewUserRepository(db *sql.DB, logger *zap.Logger) *UserRepository {
 	return &UserRepository{
-		db: db,
-	logger: logger,}
+		db:     db,
+		logger: logger}
 }
 
 // Create creates a new user
@@ -49,7 +49,7 @@ func (r *UserRepository) Create(user *models.User) error {
 func (r *UserRepository) GetByID(id int) (*models.User, error) {
 	query := `
 		SELECT id, role_id, email, password_hash, full_name, phone, address, 
-		       is_active, email_verified_at, created_at, updated_at
+		       is_active, token_version, email_verified_at, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -64,6 +64,7 @@ func (r *UserRepository) GetByID(id int) (*models.User, error) {
 		&user.Phone,
 		&user.Address,
 		&user.IsActive,
+		&user.TokenVersion,
 		&user.EmailVerifiedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -80,7 +81,7 @@ func (r *UserRepository) GetByID(id int) (*models.User, error) {
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	query := `
 		SELECT id, role_id, email, password_hash, full_name, phone, address, 
-		       is_active, email_verified_at, created_at, updated_at
+		       is_active, token_version, email_verified_at, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
@@ -95,6 +96,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 		&user.Phone,
 		&user.Address,
 		&user.IsActive,
+		&user.TokenVersion,
 		&user.EmailVerifiedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -130,10 +132,10 @@ func (r *UserRepository) GetAll(limit, offset int) ([]models.User, int64, error)
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	users := []models.User{}
 	for rows.Next() {
@@ -183,10 +185,10 @@ func (r *UserRepository) GetByRole(roleID int, limit, offset int) ([]models.User
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	users := []models.User{}
 	for rows.Next() {
@@ -234,7 +236,7 @@ func (r *UserRepository) Update(user *models.User) error {
 func (r *UserRepository) UpdatePassword(id int, hashedPassword string) error {
 	query := `
 		UPDATE users
-		SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+		SET password_hash = $1, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2
 	`
 
@@ -383,10 +385,10 @@ func (r *UserRepository) SearchByName(searchTerm string, limit, offset int) ([]m
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	users := []models.User{}
 	for rows.Next() {

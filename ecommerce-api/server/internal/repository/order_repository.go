@@ -3,6 +3,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -15,9 +16,8 @@ import (
 )
 
 type OrderRepository struct {
-	db *sql.DB
+	db     *sql.DB
 	logger *zap.Logger
-	
 }
 
 // Newquerybuilder it is save backend
@@ -28,7 +28,7 @@ var orderOrderBuilder = querybuilder.NewSQLBuilder().
 // NewOrderRepository creates a new order repository
 func NewOrderRepository(db *sql.DB, logger *zap.Logger) *OrderRepository {
 	return &OrderRepository{
-		db: db,
+		db:     db,
 		logger: logger,
 	}
 }
@@ -55,6 +55,112 @@ func (r *OrderRepository) Create(order *models.Order) error {
 	).Scan(&order.ID, &order.CreatedAt, &order.UpdatedAt)
 
 	return err
+}
+
+const maxCheckoutQuantity = 100
+
+func checkoutLineTotal(price float64, stock, qty int) (float64, error) {
+	if qty < 1 || qty > maxCheckoutQuantity {
+		return 0, fmt.Errorf("invalid quantity")
+	}
+	if qty > stock {
+		return 0, fmt.Errorf("insufficient stock")
+	}
+	return price * float64(qty), nil
+}
+
+// Checkout inserts the order and its items, then decrements stock, in one transaction.
+func (r *OrderRepository) Checkout(ctx context.Context, order *models.Order, lines []*models.OrderItem) error {
+	if len(lines) == 0 {
+		return fmt.Errorf("cart is empty")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create order")
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	type pricedLine struct {
+		productID int
+		qty       int
+		price     float64
+		subtotal  float64
+	}
+	priced := make([]pricedLine, 0, len(lines))
+	var total float64
+	for _, line := range lines {
+		if line == nil {
+			return fmt.Errorf("invalid quantity")
+		}
+		var price float64
+		var stock int
+		err := tx.QueryRowContext(ctx, `
+			SELECT price, stock FROM products WHERE id = $1 AND is_active = true FOR UPDATE
+		`, line.ProductID).Scan(&price, &stock)
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("product not found")
+		}
+		if err != nil {
+			return fmt.Errorf("failed to create order")
+		}
+		subtotal, err := checkoutLineTotal(price, stock, line.Quantity)
+		if err != nil {
+			return err
+		}
+		total += subtotal
+		priced = append(priced, pricedLine{productID: line.ProductID, qty: line.Quantity, price: price, subtotal: subtotal})
+	}
+
+	if order.OrderNumber == "" {
+		order.OrderNumber = fmt.Sprintf("ORD-%d", time.Now().UnixNano())
+	}
+	if order.Status == "" {
+		order.Status = "pending"
+	}
+	order.TotalAmount = total
+
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO orders (user_id, order_number, status, total_amount,
+		                    payment_method, shipping_address, shipping_phone, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, created_at, updated_at
+	`, order.UserID, order.OrderNumber, order.Status, order.TotalAmount, order.PaymentMethod, order.ShippingAddress, order.ShippingPhone, order.Notes).
+		Scan(&order.ID, &order.CreatedAt, &order.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to create order")
+	}
+
+	for _, line := range priced {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO order_items (order_id, product_id, quantity, price, subtotal)
+			VALUES ($1, $2, $3, $4, $5)
+		`, order.ID, line.productID, line.qty, line.price, line.subtotal); err != nil {
+			return fmt.Errorf("failed to create order items")
+		}
+		result, err := tx.ExecContext(ctx, `
+			UPDATE products SET stock = stock - $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2 AND stock >= $1
+		`, line.qty, line.productID)
+		if err != nil {
+			return fmt.Errorf("failed to create order")
+		}
+		affected, err := result.RowsAffected()
+		if err != nil || affected != 1 {
+			return fmt.Errorf("insufficient stock")
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM cart_items WHERE cart_id IN (SELECT id FROM carts WHERE user_id = $1)
+	`, order.UserID); err != nil {
+		return fmt.Errorf("failed to create order")
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to create order")
+	}
+	return nil
 }
 
 // GetByID retrieves an order by ID
@@ -146,10 +252,10 @@ func (r *OrderRepository) GetByUserID(userID int, limit, offset int) ([]models.O
 	}
 
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {
@@ -198,10 +304,10 @@ func (r *OrderRepository) GetAll(limit, offset int) ([]models.Order, int64, erro
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {
@@ -251,10 +357,10 @@ func (r *OrderRepository) GetByStatus(status string, limit, offset int) ([]model
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {
@@ -304,10 +410,10 @@ func (r *OrderRepository) GetByUserIDAndStatus(userID int, status string, limit,
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {
@@ -357,10 +463,10 @@ func (r *OrderRepository) GetByDateRange(startDate, endDate time.Time, limit, of
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {
@@ -576,10 +682,10 @@ func (r *OrderRepository) GetRecentOrders(limit int) ([]models.Order, error) {
 		return nil, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {
@@ -636,10 +742,10 @@ func (r *OrderRepository) SearchByOrderNumber(searchTerm string, limit, offset i
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {
@@ -665,9 +771,7 @@ func (r *OrderRepository) SearchByOrderNumber(searchTerm string, limit, offset i
 	return orders, total, nil
 }
 
-
 // ORDER ITEMS METHODS
-
 
 // AddOrderItem adds an item to an order
 func (r *OrderRepository) AddOrderItem(orderItem *models.OrderItem) error {
@@ -746,10 +850,10 @@ func (r *OrderRepository) GetOrderItems(orderID int) ([]models.OrderItem, error)
 		return nil, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	items := []models.OrderItem{}
 	for rows.Next() {
@@ -770,7 +874,6 @@ func (r *OrderRepository) GetOrderItems(orderID int) ([]models.OrderItem, error)
 
 	return items, nil
 }
-
 
 // STATISTICS & ANALYTICS METHODS
 
@@ -891,10 +994,10 @@ func (r *OrderRepository) GetAllWithFilters(filters map[string]interface{}, limi
 		return nil, 0, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 
 	orders := []models.Order{}
 	for rows.Next() {

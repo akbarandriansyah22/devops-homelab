@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone             VARCHAR(50),
     address           TEXT,
     is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+    token_version     INTEGER NOT NULL DEFAULT 0,
     email_verified_at TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -45,6 +45,9 @@ func main() {
 	if err := db.Ping(); err != nil {
 		loggerObs.Fatal("database unreachable: %v", err)
 	}
+	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0`); err != nil {
+		loggerObs.Fatal("failed to ensure token_version: %v", err)
+	}
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
 			loggerObs.Error("failed to close db: %v", closeErr)
@@ -59,7 +62,7 @@ func main() {
 	orderRepo := repository.NewOrderRepositoryPort(repository.NewOrderRepository(db, zlog))
 	paymentRepo := repository.NewPaymentRepositoryPort(repository.NewPaymentRepository(db, zlog))
 
-	authService := service.NewAuthService(userRepo, roleRepo, cfg.JWT.Secret, loggerObs)
+	authService := service.NewAuthService(userRepo, roleRepo, cfg.JWT.Secret, int(cfg.JWT.Expiration/time.Hour), loggerObs)
 	productService := service.NewProductService(productRepo, categoryRepo, loggerObs)
 	categoryService := service.NewCategoryService(categoryRepo, productRepo, loggerObs)
 	cartService := service.NewCartService(cartRepo, productRepo, loggerObs)
@@ -82,7 +85,7 @@ func main() {
 	app.Use(
 		recover.New(),
 		logger.New(),
-		middleware.CORS(),
+		middleware.CORS(cfg.CORS.AllowedOrigins),
 	)
 
 	app.Use(func(c *fiber.Ctx) error {
@@ -161,7 +164,7 @@ func main() {
 	publicAPI.Get("/categories/:id/subcategories", categoryHandler.GetSubCategories)
 
 	protected := app.Group("/api",
-		middleware.Auth(cfg.JWT.Secret, loggerObs),
+		middleware.Auth(cfg.JWT.Secret, loggerObs, userRepo),
 		apiRateLimiter,
 	)
 	protected.Get("/auth/profile", authHandler.GetProfile)
@@ -180,7 +183,7 @@ func main() {
 	protected.Post("/orders/:id/cancel", orderHandler.CancelOrder)
 
 	admin := app.Group("/api/admin",
-		middleware.Auth(cfg.JWT.Secret, loggerObs),
+		middleware.Auth(cfg.JWT.Secret, loggerObs, userRepo),
 		middleware.RequireRole(loggerObs, middleware.RoleAdmin),
 		apiRateLimiter,
 	)

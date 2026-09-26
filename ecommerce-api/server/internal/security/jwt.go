@@ -12,31 +12,31 @@ import (
 // JWTClaims represents the claims stored in JWT token
 
 type JWTClaims struct {
-	UserID   int    `json:"user_id"`   // ID user dari database
-	Email    string `json:"email"`     // Email user
-	RoleID   int    `json:"role_id"`   // Role ID (1=admin, 2=customer, dll)
-	FullName string `json:"full_name"` // Nama lengkap user
+	UserID       int    `json:"user_id"`   // ID user dari database
+	Email        string `json:"email"`     // Email user
+	RoleID       int    `json:"role_id"`   // Role ID (1=admin, 2=customer, dll)
+	FullName     string `json:"full_name"` // Nama lengkap user
+	TokenVersion int    `json:"token_version"`
 	jwt.RegisteredClaims
 }
 
-
 // TOKEN GENERATION
-
 
 // GenerateToken generates a new JWT token
 // Input: userID, email, roleID, fullName, secret, expiresIn (in hours)
 // Output: token string
-func GenerateToken(userID int, email string, roleID int, fullName string, secret string, expiresIn int) (string, error) {
+func GenerateToken(userID int, email string, roleID int, fullName string, secret string, expiresIn int, tokenVersion int) (string, error) {
 	// Set expiration time
 	// expiresIn dalam jam, convert ke time.Duration
 	expirationTime := time.Now().Add(time.Duration(expiresIn) * time.Hour)
 
 	// Create claims
 	claims := &JWTClaims{
-		UserID:   userID,
-		Email:    email,
-		RoleID:   roleID,
-		FullName: fullName,
+		UserID:       userID,
+		Email:        email,
+		RoleID:       roleID,
+		FullName:     fullName,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime), // Token expired time
 			IssuedAt:  jwt.NewNumericDate(time.Now()),     // Token issued time
@@ -61,18 +61,16 @@ func GenerateToken(userID int, email string, roleID int, fullName string, secret
 // GenerateAccessToken generates an access token (short-lived)
 
 func GenerateAccessToken(userID int, email string, roleID int, fullName string, secret string) (string, error) {
-	return GenerateToken(userID, email, roleID, fullName, secret, 24) // 24 hours
+	return GenerateToken(userID, email, roleID, fullName, secret, 2, 0)
 }
 
 // GenerateRefreshToken generates a refresh token (long-lived)
 
 func GenerateRefreshToken(userID int, email string, roleID int, fullName string, secret string) (string, error) {
-	return GenerateToken(userID, email, roleID, fullName, secret, 24*7) // 7 days
+	return GenerateToken(userID, email, roleID, fullName, secret, 24*7, 0)
 }
 
-
 // TOKEN VERIFICATION
-
 
 // ParseToken parses and validates a JWT token
 
@@ -107,9 +105,7 @@ func VerifyToken(tokenString string, secret string) bool {
 	return err == nil
 }
 
-
 // TOKEN EXTRACTION
-
 
 // ExtractUserID extracts user ID from token
 func ExtractUserID(tokenString string, secret string) (int, error) {
@@ -140,9 +136,7 @@ func ExtractRoleID(tokenString string, secret string) (int, error) {
 	return claims.RoleID, nil
 }
 
-
 // TOKEN VALIDATION CHECKS
-
 
 // IsTokenExpired checks if token is expired
 
@@ -183,9 +177,7 @@ func GetTokenRemainingTime(tokenString string, secret string) (time.Duration, er
 	return remaining, nil
 }
 
-
 // TOKEN REFRESH
-
 
 // RefreshToken refreshes an existing token
 
@@ -197,12 +189,10 @@ func RefreshToken(oldTokenString string, secret string, expiresIn int) (string, 
 	}
 
 	// Generate new token with same claims but new expiration
-	return GenerateToken(claims.UserID, claims.Email, claims.RoleID, claims.FullName, secret, expiresIn)
+	return GenerateToken(claims.UserID, claims.Email, claims.RoleID, claims.FullName, secret, expiresIn, claims.TokenVersion)
 }
 
-
 // TOKEN BLACKLIST HELPERS
-
 
 // GetTokenIdentifier gets a unique identifier for the token
 
@@ -215,9 +205,7 @@ func GetTokenIdentifier(tokenString string) string {
 	return tokenString
 }
 
-
 // VALIDATION HELPERS
-
 
 // ValidateTokenFormat validates basic token format
 
@@ -233,9 +221,7 @@ func ValidateTokenFormat(tokenString string) bool {
 	return parts == 2 && len(tokenString) > 20
 }
 
-
 // TOKEN INFO
-
 
 // GetTokenInfo gets detailed information about token
 
@@ -266,9 +252,7 @@ func GetTokenInfo(tokenString string, secret string) (map[string]interface{}, er
 	return info, nil
 }
 
-
 // CONSTANTS
-
 
 const (
 	// Token expiration times (in hours)

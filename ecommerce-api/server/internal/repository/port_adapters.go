@@ -249,8 +249,7 @@ func (r *CartRepositoryPort) UpdateItemQuantity(ctx context.Context, cartID, car
 }
 func (r *CartRepositoryPort) RemoveItem(ctx context.Context, cartID, cartItemID int) error {
 	_ = ctx
-	_ = cartID
-	return r.inner.RemoveItem(cartItemID)
+	return r.inner.RemoveItem(cartID, cartItemID)
 }
 func (r *CartRepositoryPort) GetCartItems(ctx context.Context, cartID int) ([]*models.CartItemWithProduct, error) {
 	_ = ctx
@@ -302,6 +301,9 @@ func NewOrderRepositoryPort(inner *OrderRepository) *OrderRepositoryPort {
 func (r *OrderRepositoryPort) Create(ctx context.Context, order *models.Order) error {
 	_ = ctx
 	return r.inner.Create(order)
+}
+func (r *OrderRepositoryPort) Checkout(ctx context.Context, order *models.Order, lines []*models.OrderItem) error {
+	return r.inner.Checkout(ctx, order, lines)
 }
 func (r *OrderRepositoryPort) CreateOrderItems(ctx context.Context, orderID int, items []*models.OrderItem) error {
 	_ = ctx

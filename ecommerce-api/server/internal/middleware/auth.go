@@ -1,13 +1,20 @@
 package middleware
 
 import (
+	"context"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/models"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/observability"
 	"github.com/akbarandriansyah22/BackendProject_and_Portofolio/e-commerce-api/server/internal/security"
 )
+
+// AuthUserLookup loads the current role and token version from the database.
+type AuthUserLookup interface {
+	GetByID(ctx context.Context, id int) (*models.User, error)
+}
 
 // ROLE CONSTANTS
 
@@ -17,7 +24,7 @@ const (
 )
 
 // Auth middleware (JWT required)
-func Auth(jwtSecret string, logger observability.Logger) fiber.Handler {
+func Auth(jwtSecret string, logger observability.Logger, users AuthUserLookup) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
@@ -39,17 +46,23 @@ func Auth(jwtSecret string, logger observability.Logger) fiber.Handler {
 			return unauthorized(c, "Invalid or expired token")
 		}
 
-		// Store user context (KONSISTEN)
-		c.Locals("userID", claims.UserID)
-		c.Locals("email", claims.Email)
-		c.Locals("roleID", claims.RoleID)
+		user, err := users.GetByID(c.Context(), claims.UserID)
+		if err != nil || user == nil || !user.IsActive || user.TokenVersion != claims.TokenVersion {
+			logger.Warn("auth_failed", "user rejected userID=%d ip=%s", claims.UserID, c.IP())
+			return unauthorized(c, "Invalid or expired token")
+		}
+
+		// Role comes from the database, not the JWT claim.
+		c.Locals("userID", user.ID)
+		c.Locals("email", user.Email)
+		c.Locals("roleID", user.RoleID)
 		c.Locals("user", claims)
 
 		logger.Info(
 			"auth_success",
 			"userID=%d email=%s ip=%s",
-			claims.UserID,
-			claims.Email,
+			user.ID,
+			user.Email,
 			c.IP(),
 		)
 

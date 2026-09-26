@@ -117,17 +117,19 @@ func (s *OrderService) CreateFromCart(userID int, shippingAddress, shippingPhone
 		return nil, fmt.Errorf("cart is empty")
 	}
 
-	// Generate order number
-	orderNumber, err := s.orderRepo.GenerateOrderNumber(ctx)
-	if err != nil {
-		s.logger.Error("OrderService.CreateFromCart failed to generate order number", err)
-		return nil, fmt.Errorf("failed to create order")
+	orderItems := make([]*models.OrderItem, len(cartItems))
+	for i, item := range cartItems {
+		if item.Quantity < 1 || item.Quantity > 100 {
+			return nil, fmt.Errorf("invalid quantity")
+		}
+		orderItems[i] = &models.OrderItem{
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+		}
 	}
 
-	// Create order
 	order := &models.Order{
 		UserID:          userID,
-		OrderNumber:     orderNumber,
 		Status:          "pending",
 		ShippingAddress: shippingAddress,
 		ShippingPhone:   shippingPhone,
@@ -135,29 +137,10 @@ func (s *OrderService) CreateFromCart(userID int, shippingAddress, shippingPhone
 		Notes:           sql.NullString{String: notes, Valid: notes != ""},
 	}
 
-	if err := s.orderRepo.Create(ctx, order); err != nil {
-		s.logger.Error("OrderService.CreateFromCart failed to create order", err)
-		return nil, fmt.Errorf("failed to create order")
+	if err := s.orderRepo.Checkout(ctx, order, orderItems); err != nil {
+		s.logger.Error("OrderService.CreateFromCart failed", err)
+		return nil, err
 	}
-
-	// Create order items from cart items
-	orderItems := make([]*models.OrderItem, len(cartItems))
-	for i, item := range cartItems {
-		orderItems[i] = &models.OrderItem{
-			OrderID:   order.ID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			Price:     item.Price,
-		}
-	}
-
-	if err := s.orderRepo.CreateOrderItems(ctx, order.ID, orderItems); err != nil {
-		s.logger.Error("OrderService.CreateFromCart failed to create order items", err)
-		return nil, fmt.Errorf("failed to create order items")
-	}
-
-	// Clear cart after order creation
-	_ = s.cartRepo.ClearCart(ctx, cart.ID)
 
 	s.logger.Info("Order created from cart: UserID=%d, OrderID=%d, OrderNumber=%s", userID, order.ID, order.OrderNumber)
 
@@ -191,6 +174,10 @@ func (s *OrderService) CancelOrder(orderID int) error {
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil || order == nil {
 		return fmt.Errorf("order not found")
+	}
+
+	if order.Status != "pending" {
+		return fmt.Errorf("order cannot be cancelled")
 	}
 
 	// Update status to cancelled

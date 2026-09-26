@@ -76,11 +76,17 @@ func (s *CartService) AddItem(ctx context.Context, userID, productID, quantity i
 	if quantity <= 0 {
 		return fmt.Errorf("quantity must be greater than 0")
 	}
+	if quantity > maxCartQuantity {
+		return fmt.Errorf("quantity exceeds maximum")
+	}
 
 	// Get product
 	product, err := s.productRepo.GetByID(ctx, productID)
 	if err != nil || product == nil {
 		return fmt.Errorf("product not found")
+	}
+	if quantity > product.Stock {
+		return fmt.Errorf("insufficient stock")
 	}
 
 	// Get or create cart
@@ -93,6 +99,14 @@ func (s *CartService) AddItem(ctx context.Context, userID, productID, quantity i
 		}
 	}
 
+	exists, current, err := s.cartRepo.CheckItemExists(ctx, cart.ID, productID)
+	if err != nil {
+		return fmt.Errorf("failed to add cart item: %w", err)
+	}
+	if exists && (current+quantity > maxCartQuantity || current+quantity > product.Stock) {
+		return fmt.Errorf("quantity exceeds maximum")
+	}
+
 	if err := s.cartRepo.AddItem(ctx, cart.ID, productID, quantity); err != nil {
 		s.logger.Error("CartService.AddItem failed", err)
 		return fmt.Errorf("failed to add cart item: %w", err)
@@ -101,8 +115,14 @@ func (s *CartService) AddItem(ctx context.Context, userID, productID, quantity i
 }
 
 // RemoveItem removes item from cart
+const maxCartQuantity = 100
+
 func (s *CartService) RemoveItem(ctx context.Context, userID, cartItemID int) error {
-	return s.cartRepo.RemoveItem(ctx, 0, cartItemID)
+	cart, err := s.cartRepo.GetByUserID(ctx, userID)
+	if err != nil || cart == nil {
+		return fmt.Errorf("cart item not found")
+	}
+	return s.cartRepo.RemoveItem(ctx, cart.ID, cartItemID)
 }
 
 // ClearCart clears all items from cart

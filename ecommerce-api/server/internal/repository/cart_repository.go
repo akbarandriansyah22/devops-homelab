@@ -13,15 +13,14 @@ import (
 )
 
 type CartRepository struct {
-	db *sql.DB
+	db     *sql.DB
 	logger *zap.Logger
 }
-
 
 // NewCartRepository creates a new cart repository
 func NewCartRepository(db *sql.DB, logger *zap.Logger) *CartRepository {
 	return &CartRepository{
-		db: db,
+		db:     db,
 		logger: logger,
 	}
 }
@@ -127,10 +126,10 @@ func (r *CartRepository) GetCartItems(cartID int) ([]models.CartItemWithProduct,
 		return nil, err
 	}
 	defer func() {
-    if err := rows.Close(); err != nil {
-		log.Printf("failed to close rows: %v", err)
-    }
-}()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
+	}()
 	items := []models.CartItemWithProduct{}
 	for rows.Next() {
 		var item models.CartItemWithProduct
@@ -319,9 +318,9 @@ func (r *CartRepository) DecrementItemQuantity(cartItemID, quantity int) error {
 }
 
 // RemoveItem removes an item from cart
-func (r *CartRepository) RemoveItem(cartItemID int) error {
-	query := `DELETE FROM cart_items WHERE id = $1`
-	result, err := r.db.Exec(query, cartItemID)
+func (r *CartRepository) RemoveItem(cartID, cartItemID int) error {
+	query := `DELETE FROM cart_items WHERE id = $1 AND cart_id = $2`
+	result, err := r.db.Exec(query, cartItemID, cartID)
 	if err != nil {
 		return err
 	}
